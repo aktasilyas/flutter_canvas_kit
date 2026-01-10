@@ -1,0 +1,29 @@
+name: flutter_canvas_kit
+description: A professional Flutter canvas/drawing library with multi-layer support, various drawing tools, undo/redo, and export capabilities.
+version: 2.0.0
+homepage: https://github.com/example/flutter_canvas_kit
+repository: https://github.com/example/flutter_canvas_kit
+issue_tracker: https://github.com/example/flutter_canvas_kit/issues
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.10.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+topics:
+  - canvas
+  - drawing
+  - painting
+  - whiteboard
+  - annotation

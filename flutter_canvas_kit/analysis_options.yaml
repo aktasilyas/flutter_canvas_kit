@@ -1,0 +1,174 @@
+# ============================================================================
+# FLUTTER CANVAS KIT - Kod Analiz Kuralları
+# ============================================================================
+#
+# Bu dosya Dart analyzer'ın kod kalitesini nasıl kontrol edeceğini belirler.
+# 
+# NEDEN ÖNEMLİ?
+# 1. Tutarlı kod stili (ekipteki herkes aynı kuralları takip eder)
+# 2. Bug önleme (potansiyel hatalar derleme zamanında yakalanır)
+# 3. Best practice zorlama (kötü pratikler engellenir)
+# 4. Okunabilirlik (kod review kolaylaşır)
+#
+# KURALLAR 3 SEVİYEDE:
+# - error: Derleme hatası (kod çalışmaz)
+# - warning: Uyarı (kod çalışır ama düzeltilmeli)
+# - info: Bilgi (öneri niteliğinde)
+# ============================================================================
+
+# Flutter'ın önerilen lint kurallarını dahil et
+include: package:flutter_lints/flutter.yaml
+
+# ============================================================================
+# ANALİZÖR AYARLARI
+# ============================================================================
+analyzer:
+  # Hataları nasıl ele alacağımız
+  errors:
+    # Kullanılmayan import'lar uyarı olsun
+    unused_import: warning
+    # Kullanılmayan değişkenler uyarı olsun
+    unused_local_variable: warning
+    # Null safety ihlalleri hata olsun
+    invalid_null_aware_operator: error
+    # Deprecated API kullanımı uyarı olsun
+    deprecated_member_use: warning
+  
+  # Bu dosyaları analiz etme
+  exclude:
+    - "**/*.g.dart"           # Generated dosyalar
+    - "**/*.freezed.dart"     # Freezed generated
+    - "build/**"              # Build çıktıları
+    - ".dart_tool/**"         # Dart tools
+
+  # Güçlü mod (strict typing)
+  language:
+    strict-casts: true        # Implicit cast'leri engelle
+    strict-inference: true    # Tip çıkarımını zorla
+    strict-raw-types: true    # Raw generic'leri engelle
+
+# ============================================================================
+# LINT KURALLARI
+# ============================================================================
+# Her kural için NEDEN açıklaması var
+# ============================================================================
+linter:
+  rules:
+    # ==========================================================================
+    # HATA ÖNLEYİCİ KURALLAR
+    # ==========================================================================
+    
+    # await kullanılmayan Future'ları yakala
+    # NEDEN: Unutulan await = sessiz bug
+    unawaited_futures: true
+    
+    # Null kontrolü yapılmadan null olabilecek değere erişimi engelle
+    # NEDEN: NullPointerException önleme
+    avoid_null_checks_in_equality_operators: true
+    
+    # Boş catch blokları engelle
+    # NEDEN: Hatalar yutulmamalı
+    empty_catches: true
+    
+    # throw new yerine throw kullan
+    # NEDEN: Dart 2+ için new gereksiz
+    unnecessary_new: true
+    
+    # ==========================================================================
+    # KOD KALİTESİ KURALLARI
+    # ==========================================================================
+    
+    # Public API'larda documentation zorunlu
+    # NEDEN: Paketin kullanılabilirliği için kritik
+    public_member_api_docs: true
+    
+    # const kullanılabilecek yerlerde const zorunlu
+    # NEDEN: Performans optimizasyonu
+    prefer_const_constructors: true
+    prefer_const_declarations: true
+    prefer_const_literals_to_create_immutables: true
+    
+    # final kullanılabilecek yerlerde final zorunlu
+    # NEDEN: Değişmezlik = daha az bug
+    prefer_final_locals: true
+    prefer_final_fields: true
+    
+    # var yerine explicit tip tercih et
+    # NEDEN: Okunabilirlik
+    always_specify_types: false  # Bu çok katı, kapatıyoruz
+    omit_local_variable_types: true  # Yerel değişkenlerde var ok
+    
+    # ==========================================================================
+    # STIL KURALLARI
+    # ==========================================================================
+    
+    # camelCase isimlendirme
+    # NEDEN: Dart convention
+    non_constant_identifier_names: true
+    
+    # Dosya isimleri snake_case olmalı
+    # NEDEN: Dart convention
+    file_names: true
+    
+    # Import sıralaması
+    # NEDEN: Tutarlılık
+    directives_ordering: true
+    
+    # Gereksiz this kullanımı engelle
+    # NEDEN: Temiz kod
+    unnecessary_this: true
+    
+    # Tek satırlık bloklar için {} kullan
+    # NEDEN: Bug önleme (dangling else problemi)
+    always_use_package_imports: true
+    
+    # String interpolation tercih et
+    # NEDEN: Okunabilirlik
+    prefer_interpolation_to_compose_strings: true
+    
+    # ==========================================================================
+    # PERFORMANS KURALLARI
+    # ==========================================================================
+    
+    # Spread operator kullan
+    # NEDEN: Daha performanslı ve okunabilir
+    prefer_spread_collections: true
+    
+    # Collection if/for kullan
+    # NEDEN: Daha performanslı
+    prefer_collection_literals: true
+    
+    # forEach yerine for kullan (await varsa)
+    # NEDEN: forEach async çalışmaz
+    avoid_function_literals_in_foreach_calls: true
+    
+    # ==========================================================================
+    # FLUTTER SPESİFİK KURALLAR
+    # ==========================================================================
+    
+    # const widget'lar için const constructor kullan
+    # NEDEN: Widget rebuild optimizasyonu
+    use_key_in_widget_constructors: true
+    
+    # BuildContext'i async gap'te kullanma
+    # NEDEN: Context geçersiz olabilir
+    use_build_context_synchronously: true
+    
+    # dispose edilmesi gereken kaynakları takip et
+    # NEDEN: Memory leak önleme
+    cancel_subscriptions: true
+    close_sinks: true
+    
+    # ==========================================================================
+    # KAPATTĞIMIZ KURALLAR (iyi sebeplerle)
+    # ==========================================================================
+    
+    # Her satır 80 karakter - çok kısıtlayıcı
+    lines_longer_than_80_chars: false
+    
+    # Her public member için doc - bazen gereksiz
+    # public_member_api_docs zaten açık, bu fazla
+    # package_api_docs: false
+    
+    # Tek satır fonksiyonlar için => zorlama - bazen okunabilirliği bozar
+    prefer_expression_function_bodies: false
