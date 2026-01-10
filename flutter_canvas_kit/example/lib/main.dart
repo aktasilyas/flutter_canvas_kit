@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_canvas_kit/flutter_canvas_kit.dart';
+import 'dart:io';
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
 
 void main() {
   runApp(const MyApp());
@@ -42,7 +45,7 @@ class _DrawingPageState extends State<DrawingPage> {
   bool _showLayerPanel = false;
   Tool? _activeTool;
   ToolType _activeToolType = ToolType.pen;
-
+  final GlobalKey _canvasKey = GlobalKey();
   @override
   void initState() {
     super.initState();
@@ -102,6 +105,11 @@ class _DrawingPageState extends State<DrawingPage> {
             onPressed: () => setState(() => _showLayerPanel = !_showLayerPanel),
             tooltip: 'Katmanlar',
           ),
+          IconButton(
+            icon: const Icon(Icons.save_alt),
+            onPressed: _exportPng,
+            tooltip: 'PNG Kaydet',
+          ),
           // Undo
           ListenableBuilder(
             listenable: _controller,
@@ -156,11 +164,15 @@ class _DrawingPageState extends State<DrawingPage> {
                 Expanded(
                   child: Stack(
                     children: [
-                      CanvasWidget(
-                        controller: _controller,
-                        config: const CanvasConfig(debugMode: true),
-                        tool: _activeTool,
-                        onZoomChanged: (zoom) => setState(() {}),
+                      RepaintBoundary(
+                        key: _canvasKey,
+                        child: CanvasWidget(
+                          controller: _controller,
+                          config: const CanvasConfig(
+                              debugMode: false), // Export için debug kapat
+                          tool: _activeTool,
+                          onZoomChanged: (zoom) => setState(() {}),
+                        ),
                       ),
                       Positioned(
                         right: 16,
@@ -463,6 +475,49 @@ class _DrawingPageState extends State<DrawingPage> {
           ),
         );
       },
+    );
+  }
+
+  Future<void> _exportPng() async {
+    try {
+      final boundary = _canvasKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary == null) {
+        _showSnackBar('Export hatası: Canvas bulunamadı');
+        return;
+      }
+
+      final image = await boundary.toImage(pixelRatio: 2.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+
+      if (byteData == null) {
+        _showSnackBar('Export hatası: Görüntü oluşturulamadı');
+        return;
+      }
+
+      final bytes = byteData.buffer.asUint8List();
+
+      // Dosya adı oluştur
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = 'canvas_$timestamp.png';
+
+      // Android/iOS için path
+      final directory = Directory('/storage/emulated/0/Download');
+      if (await directory.exists()) {
+        final file = File('${directory.path}/$fileName');
+        await file.writeAsBytes(bytes);
+        _showSnackBar('Kaydedildi: $fileName');
+      } else {
+        _showSnackBar('İndirilenler klasörü bulunamadı');
+      }
+    } catch (e) {
+      _showSnackBar('Export hatası: $e');
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 
