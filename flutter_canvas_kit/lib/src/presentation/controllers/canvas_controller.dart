@@ -414,17 +414,26 @@ class CanvasController extends ChangeNotifier {
   // Eraser Operations
   // ---------------------------------------------------------------------------
 
-  /// Belirli noktadaki stroke'ları siler.
+  /// Belirli noktadaki stroke ve shape'leri siler.
   void eraseAt(Offset position, {double radius = 10.0}) {
     if (_isReadOnly) return;
     if (activeLayer.isLocked) return;
 
-    final hits = activeLayer.hitTest(position, tolerance: radius);
-    if (hits.isEmpty) return;
+    final hitStrokes = activeLayer.hitTest(position, tolerance: radius);
+    final hitShapes = activeLayer.hitTestShapes(position, tolerance: radius);
+
+    if (hitStrokes.isEmpty && hitShapes.isEmpty) return;
 
     var updatedLayer = activeLayer;
-    for (final stroke in hits) {
+
+    // Stroke'ları sil
+    for (final stroke in hitStrokes) {
       updatedLayer = updatedLayer.removeStroke(stroke.id);
+    }
+
+    // Shape'leri sil
+    for (final shape in hitShapes) {
+      updatedLayer = updatedLayer.removeShape(shape.id);
     }
 
     final updatedPage = currentPage.updateLayer(activeLayer.id, updatedLayer);

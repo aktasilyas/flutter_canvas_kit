@@ -239,9 +239,19 @@ final class Layer {
         .toList();
   }
 
+  /// Noktadaki shape'leri bulur.
+  List<Shape> hitTestShapes(Offset point, {double tolerance = 10.0}) {
+    return shapes.where((s) => s.hitTest(point, tolerance: tolerance)).toList();
+  }
+
   /// Rect içindeki stroke'ları bulur.
   List<Stroke> hitTestRect(Rect rect) {
     return strokes.where((s) => rect.overlaps(s.boundingBox)).toList();
+  }
+
+  /// Rect içindeki shape'leri bulur.
+  List<Shape> hitTestShapesRect(Rect rect) {
+    return shapes.where((s) => rect.overlaps(s.boundingBox)).toList();
   }
 
   // ---------------------------------------------------------------------------

@@ -117,7 +117,7 @@ class ShapeTool extends Tool {
   @override
   void onDoubleTap(CanvasController controller, Offset position) {
     // Çift tıklama ile bir sonraki şekil tipine geç
-    final types = ShapeType.values;
+    const types = ShapeType.values;
     final currentIndex = types.indexOf(controller.currentShapeType);
     final nextIndex = (currentIndex + 1) % types.length;
     controller.setShapeType(types[nextIndex]);
