@@ -39,6 +39,7 @@ class _DrawingPageState extends State<DrawingPage> {
   late final EraserTool _eraserTool;
   late final ShapeTool _shapeTool;
   late final SelectionTool _selectionTool;
+  bool _showLayerPanel = false;
   Tool? _activeTool;
   ToolType _activeToolType = ToolType.pen;
 
@@ -96,6 +97,11 @@ class _DrawingPageState extends State<DrawingPage> {
       appBar: AppBar(
         title: const Text('Flutter Canvas Kit'),
         actions: [
+          IconButton(
+            icon: Icon(_showLayerPanel ? Icons.layers : Icons.layers_outlined),
+            onPressed: () => setState(() => _showLayerPanel = !_showLayerPanel),
+            tooltip: 'Katmanlar',
+          ),
           // Undo
           ListenableBuilder(
             listenable: _controller,
@@ -144,24 +150,125 @@ class _DrawingPageState extends State<DrawingPage> {
           _buildStyleBar(),
           // Canvas + Zoom kontrolü
           Expanded(
-            child: Stack(
+            child: Row(
               children: [
-                CanvasWidget(
-                  controller: _controller,
-                  config: const CanvasConfig(debugMode: true),
-                  tool: _activeTool,
-                  onZoomChanged: (zoom) => setState(() {}),
+                // Canvas
+                Expanded(
+                  child: Stack(
+                    children: [
+                      CanvasWidget(
+                        controller: _controller,
+                        config: const CanvasConfig(debugMode: true),
+                        tool: _activeTool,
+                        onZoomChanged: (zoom) => setState(() {}),
+                      ),
+                      Positioned(
+                        right: 16,
+                        bottom: 16,
+                        child: _buildZoomControls(),
+                      ),
+                    ],
+                  ),
                 ),
-                // Zoom göstergesi
-                Positioned(
-                  right: 16,
-                  bottom: 16,
-                  child: _buildZoomControls(),
-                ),
+                // Layer Panel
+                if (_showLayerPanel)
+                  SizedBox(
+                    width: 250,
+                    child: _buildLayerPanel(),
+                  ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLayerPanel() {
+    return ListenableBuilder(
+      listenable: _controller,
+      builder: (context, _) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(left: BorderSide(color: Colors.grey[300]!)),
+          ),
+          child: Column(
+            children: [
+              // Başlık
+              Container(
+                padding: const EdgeInsets.all(12),
+                color: Colors.grey[100],
+                child: Row(
+                  children: [
+                    const Icon(Icons.layers, size: 20),
+                    const SizedBox(width: 8),
+                    const Text('Katmanlar',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.add, size: 20),
+                      onPressed: () => _controller.addLayer(
+                          name: 'Layer ${_controller.layerCount + 1}'),
+                      tooltip: 'Katman Ekle',
+                    ),
+                  ],
+                ),
+              ),
+              // Katman listesi
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _controller.layers.length,
+                  itemBuilder: (context, index) {
+                    final layer = _controller.layers[index];
+                    final isActive = index == _controller.activeLayerIndex;
+                    return _buildLayerTile(layer, index, isActive);
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLayerTile(dynamic layer, int index, bool isActive) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isActive ? Colors.blue[50] : null,
+        border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+      ),
+      child: ListTile(
+        dense: true,
+        selected: isActive,
+        leading: IconButton(
+          icon: Icon(
+            layer.isVisible ? Icons.visibility : Icons.visibility_off,
+            size: 20,
+          ),
+          onPressed: () => _controller.toggleLayerVisibility(layer.id),
+        ),
+        title: Text(layer.name),
+        subtitle: Text('${layer.elementCount} eleman'),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: Icon(
+                layer.isLocked ? Icons.lock : Icons.lock_open,
+                size: 18,
+              ),
+              onPressed: () => _controller.toggleLayerLock(layer.id),
+            ),
+            if (_controller.layerCount > 1)
+              IconButton(
+                icon: const Icon(Icons.delete_outline, size: 18),
+                onPressed: () => _controller.removeLayer(layer.id),
+              ),
+          ],
+        ),
+        onTap: () => _controller.setActiveLayerIndex(index),
       ),
     );
   }
