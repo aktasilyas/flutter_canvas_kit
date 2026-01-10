@@ -137,14 +137,25 @@ class CanvasPainter extends CustomPainter {
       );
     }
 
-    // Stroke'lar
+    // Tüm elemanları timestamp'e göre sırala ve çiz
+    final elements = <_PaintElement>[];
+
     for (final stroke in layer.strokes) {
-      _paintStroke(canvas, stroke);
+      elements.add(_PaintElement(stroke.createdAt, stroke: stroke));
+    }
+    for (final shape in layer.shapes) {
+      elements.add(_PaintElement(shape.createdAt, shape: shape));
     }
 
-    // Shape'ler
-    for (final shape in layer.shapes) {
-      _paintShape(canvas, shape);
+    // Eski elemanlar önce çizilsin (altta kalsın)
+    elements.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+    for (final element in elements) {
+      if (element.stroke != null) {
+        _paintStroke(canvas, element.stroke!);
+      } else if (element.shape != null) {
+        _paintShape(canvas, element.shape!);
+      }
     }
 
     if (layer.opacity < 1.0) {
@@ -376,4 +387,13 @@ class CanvasPainter extends CustomPainter {
         activeShape != oldDelegate.activeShape ||
         selectedIds != oldDelegate.selectedIds;
   }
+}
+
+/// Çizim sıralaması için yardımcı sınıf.
+class _PaintElement {
+  final DateTime timestamp;
+  final Stroke? stroke;
+  final Shape? shape;
+
+  _PaintElement(this.timestamp, {this.stroke, this.shape});
 }
