@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart' hide Layer;
+import 'package:flutter/material.dart';
 import 'package:flutter_canvas_kit/flutter_canvas_kit.dart';
 
 void main() {
@@ -141,16 +141,74 @@ class _DrawingPageState extends State<DrawingPage> {
           if (_activeToolType == ToolType.shape) _buildShapeSelector(),
           // Renk ve kalınlık
           _buildStyleBar(),
-          // Canvas
+          // Canvas + Zoom kontrolü
           Expanded(
-            child: CanvasWidget(
-              controller: _controller,
-              config: const CanvasConfig(debugMode: true),
-              tool: _activeTool,
+            child: Stack(
+              children: [
+                CanvasWidget(
+                  controller: _controller,
+                  config: const CanvasConfig(debugMode: true),
+                  tool: _activeTool,
+                  onZoomChanged: (zoom) => setState(() {}),
+                ),
+                // Zoom göstergesi
+                Positioned(
+                  right: 16,
+                  bottom: 16,
+                  child: _buildZoomControls(),
+                ),
+              ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildZoomControls() {
+    return ListenableBuilder(
+      listenable: _controller,
+      builder: (context, _) {
+        return Card(
+          elevation: 4,
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  onPressed: () => _controller.zoomIn(),
+                  tooltip: 'Yakınlaştır',
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '${(_controller.zoom * 100).toInt()}%',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.remove),
+                  onPressed: () => _controller.zoomOut(),
+                  tooltip: 'Uzaklaştır',
+                ),
+                const Divider(height: 8),
+                IconButton(
+                  icon: const Icon(Icons.center_focus_strong),
+                  onPressed: () => _controller.resetZoom(),
+                  tooltip: 'Sıfırla',
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
