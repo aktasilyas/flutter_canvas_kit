@@ -45,6 +45,9 @@ class CanvasController extends ChangeNotifier {
   /// Aktif çizgi (çizim sırasında).
   List<StrokePoint>? _activeStrokePoints;
 
+  /// Aktif şekil (çizim sırasında preview için).
+  Shape? _activeShape;
+
   /// Seçili eleman ID'leri.
   final Set<String> _selectedIds = {};
 
@@ -128,6 +131,9 @@ class CanvasController extends ChangeNotifier {
 
   /// Aktif stroke (çizim sırasında).
   List<StrokePoint>? get activeStrokePoints => _activeStrokePoints;
+
+  /// Aktif şekil (çizim sırasında preview için).
+  Shape? get activeShape => _activeShape;
 
   /// Seçili eleman var mı?
   bool get hasSelection => _selectedIds.isNotEmpty;
@@ -476,11 +482,24 @@ class CanvasController extends ChangeNotifier {
   // Shape Operations
   // ---------------------------------------------------------------------------
 
+  /// Aktif şekli ayarlar (preview için).
+  void setActiveShape(Shape? shape) {
+    _activeShape = shape;
+    notifyListeners();
+  }
+
+  /// Aktif şekli temizler.
+  void clearActiveShape() {
+    _activeShape = null;
+    notifyListeners();
+  }
+
   /// Aktif katmana shape ekler.
   void addShapeToActiveLayer(Shape shape) {
     if (_isReadOnly) return;
     if (activeLayer.isLocked) return;
 
+    _activeShape = null; // Preview'u temizle
     final updatedLayer = activeLayer.addShape(shape);
     final updatedPage = currentPage.updateLayer(activeLayer.id, updatedLayer);
     _updateDocument(_document.updateCurrentPage(updatedPage));

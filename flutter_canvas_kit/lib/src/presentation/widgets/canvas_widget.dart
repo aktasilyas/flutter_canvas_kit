@@ -135,6 +135,7 @@ class _CanvasWidgetState extends State<CanvasWidget> {
                           page: page,
                           activeStrokePoints:
                               widget.controller.activeStrokePoints,
+                          activeShape: widget.controller.activeShape,
                           activeStrokeColor: widget.controller.currentColor,
                           activeStrokeWidth: widget.controller.currentWidth,
                           selectedIds: widget.controller.selectedIds,

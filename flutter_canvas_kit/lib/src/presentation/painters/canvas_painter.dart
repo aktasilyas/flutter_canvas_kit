@@ -17,6 +17,9 @@ class CanvasPainter extends CustomPainter {
   /// Aktif çizim noktaları (çizim sırasında).
   final List<StrokePoint>? activeStrokePoints;
 
+  /// Aktif şekil (çizim sırasında preview için).
+  final Shape? activeShape;
+
   /// Aktif çizim stili.
   final Color activeStrokeColor;
   final double activeStrokeWidth;
@@ -30,6 +33,7 @@ class CanvasPainter extends CustomPainter {
   CanvasPainter({
     required this.page,
     this.activeStrokePoints,
+    this.activeShape,
     this.activeStrokeColor = const Color(0xFF000000),
     this.activeStrokeWidth = 2.0,
     this.selectedIds = const {},
@@ -47,9 +51,14 @@ class CanvasPainter extends CustomPainter {
       _paintLayer(canvas, layer);
     }
 
-    // Aktif çizim
+    // Aktif çizim (stroke)
     if (activeStrokePoints != null && activeStrokePoints!.isNotEmpty) {
       _paintActiveStroke(canvas);
+    }
+
+    // Aktif şekil (preview)
+    if (activeShape != null) {
+      _paintShape(canvas, activeShape!);
     }
 
     // Seçim göstergeleri
@@ -87,18 +96,18 @@ class CanvasPainter extends CustomPainter {
 
     switch (page.background) {
       case PageBackground.lined:
-        for (var y = spacing; y < page.height; y += spacing) {
+        for (double y = spacing; y < page.height; y += spacing) {
           canvas.drawLine(Offset(0, y), Offset(page.width, y), paint);
         }
         break;
 
       case PageBackground.grid:
         // Yatay çizgiler
-        for (var y = spacing; y < page.height; y += spacing) {
+        for (double y = spacing; y < page.height; y += spacing) {
           canvas.drawLine(Offset(0, y), Offset(page.width, y), paint);
         }
         // Dikey çizgiler
-        for (var x = spacing; x < page.width; x += spacing) {
+        for (double x = spacing; x < page.width; x += spacing) {
           canvas.drawLine(Offset(x, 0), Offset(x, page.height), paint);
         }
         break;
@@ -107,8 +116,8 @@ class CanvasPainter extends CustomPainter {
         final dotPaint = Paint()
           ..color = page.gridColor
           ..style = PaintingStyle.fill;
-        for (var y = spacing; y < page.height; y += spacing) {
-          for (var x = spacing; x < page.width; x += spacing) {
+        for (double y = spacing; y < page.height; y += spacing) {
+          for (double x = spacing; x < page.width; x += spacing) {
             canvas.drawCircle(Offset(x, y), 1.5, dotPaint);
           }
         }
@@ -196,7 +205,7 @@ class CanvasPainter extends CustomPainter {
     if (points.length == 2) {
       path.lineTo(points.last.x, points.last.y);
     } else {
-      for (var i = 1; i < points.length - 1; i++) {
+      for (int i = 1; i < points.length - 1; i++) {
         final p0 = points[i];
         final p1 = points[i + 1];
         final midX = (p0.x + p1.x) / 2;
@@ -283,7 +292,7 @@ class CanvasPainter extends CustomPainter {
     final unitY = dy / _sqrt(length);
 
     final arrowSize = paint.strokeWidth * 4;
-    const arrowAngle = 0.5; // ~30 derece
+    final arrowAngle = 0.5; // ~30 derece
 
     final p1 = Offset(
       end.dx - arrowSize * (unitX + arrowAngle * unitY),
@@ -353,8 +362,8 @@ class CanvasPainter extends CustomPainter {
 
   double _sqrt(double value) {
     if (value <= 0) return 0;
-    var guess = value / 2;
-    for (var i = 0; i < 10; i++) {
+    double guess = value / 2;
+    for (int i = 0; i < 10; i++) {
       guess = (guess + value / guess) / 2;
     }
     return guess;
@@ -364,6 +373,7 @@ class CanvasPainter extends CustomPainter {
   bool shouldRepaint(covariant CanvasPainter oldDelegate) {
     return page != oldDelegate.page ||
         activeStrokePoints != oldDelegate.activeStrokePoints ||
+        activeShape != oldDelegate.activeShape ||
         selectedIds != oldDelegate.selectedIds;
   }
 }
