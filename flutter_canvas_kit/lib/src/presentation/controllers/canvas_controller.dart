@@ -443,6 +443,39 @@ class CanvasController extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   // Selection Operations
   // ---------------------------------------------------------------------------
+  /// Seçili elemanları taşır.
+  void moveSelected(double dx, double dy) {
+    if (_selectedIds.isEmpty) return;
+    if (_isReadOnly) return;
+    if (activeLayer.isLocked) return;
+
+    var updatedLayer = activeLayer;
+
+    // Stroke'ları taşı
+    for (final stroke in activeLayer.strokes) {
+      if (_selectedIds.contains(stroke.id)) {
+        updatedLayer = updatedLayer.updateStroke(
+          stroke.id,
+          stroke.translate(dx, dy),
+        );
+      }
+    }
+
+    // Shape'leri taşı
+    for (final shape in activeLayer.shapes) {
+      if (_selectedIds.contains(shape.id)) {
+        final movedShape = shape.translate(dx, dy);
+        updatedLayer = updatedLayer.copyWith(
+          shapes: updatedLayer.shapes
+              .map((s) => s.id == shape.id ? movedShape : s)
+              .toList(),
+        );
+      }
+    }
+
+    final updatedPage = currentPage.updateLayer(activeLayer.id, updatedLayer);
+    _updateDocument(_document.updateCurrentPage(updatedPage));
+  }
 
   /// Eleman seçer.
   void selectElement(String elementId) {

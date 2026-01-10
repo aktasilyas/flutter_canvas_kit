@@ -71,10 +71,16 @@ class SelectionTool extends Tool {
 
     // Seçili eleman var mı ve üzerine mi tıklandı?
     if (controller.hasSelection) {
-      // Seçim alanına mı tıklandı?
-      final hits = controller.activeLayer.hitTest(position);
-      final hitIds = hits.map((s) => s.id).toSet();
-      final selectedInHits = controller.selectedIds.intersection(hitIds);
+      // Stroke hit test
+      final strokeHits = controller.activeLayer.hitTest(position);
+      final strokeHitIds = strokeHits.map((s) => s.id).toSet();
+
+      // Shape hit test
+      final shapeHits = controller.activeLayer.hitTestShapes(position);
+      final shapeHitIds = shapeHits.map((s) => s.id).toSet();
+
+      final allHitIds = strokeHitIds.union(shapeHitIds);
+      final selectedInHits = controller.selectedIds.intersection(allHitIds);
 
       if (selectedInHits.isNotEmpty) {
         // Seçili eleman üzerine tıklandı - taşıma modu
@@ -85,12 +91,17 @@ class SelectionTool extends Tool {
     }
 
     // Hit test - herhangi bir eleman var mı?
-    final hits = controller.activeLayer.hitTest(position);
+    final strokeHits = controller.activeLayer.hitTest(position);
+    final shapeHits = controller.activeLayer.hitTestShapes(position);
 
-    if (hits.isNotEmpty) {
-      // Tek eleman seçimi
+    if (strokeHits.isNotEmpty) {
       controller.clearSelection();
-      controller.selectElement(hits.first.id);
+      controller.selectElement(strokeHits.first.id);
+      _mode = SelectionMode.move;
+      _moveStart = position;
+    } else if (shapeHits.isNotEmpty) {
+      controller.clearSelection();
+      controller.selectElement(shapeHits.first.id);
       _mode = SelectionMode.move;
       _moveStart = position;
     } else {
@@ -118,9 +129,8 @@ class SelectionTool extends Tool {
 
       case SelectionMode.move:
         if (_moveStart != null && controller.hasSelection) {
-          // TODO: controller.moveSelected implementasyonu eklenince aktif edilecek
-          // final delta = position - _moveStart!;
-          // controller.moveSelected(delta.dx, delta.dy);
+          final delta = position - _moveStart!;
+          controller.moveSelected(delta.dx, delta.dy);
           _moveStart = position;
         }
         break;
@@ -138,9 +148,14 @@ class SelectionTool extends Tool {
   ) {
     if (_mode == SelectionMode.rectangle && selectionRect != null) {
       // Seçim kutusundaki elemanları seç
-      final hits = controller.activeLayer.hitTestRect(selectionRect!);
-      for (final stroke in hits) {
+      final strokeHits = controller.activeLayer.hitTestRect(selectionRect!);
+      for (final stroke in strokeHits) {
         controller.selectElement(stroke.id);
+      }
+      final shapeHits =
+          controller.activeLayer.hitTestShapesRect(selectionRect!);
+      for (final shape in shapeHits) {
+        controller.selectElement(shape.id);
       }
     }
 

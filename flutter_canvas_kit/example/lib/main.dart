@@ -38,7 +38,7 @@ class _DrawingPageState extends State<DrawingPage> {
   late final PencilTool _pencilTool;
   late final EraserTool _eraserTool;
   late final ShapeTool _shapeTool;
-
+  late final SelectionTool _selectionTool;
   Tool? _activeTool;
   ToolType _activeToolType = ToolType.pen;
 
@@ -58,7 +58,7 @@ class _DrawingPageState extends State<DrawingPage> {
     _pencilTool = PencilTool();
     _eraserTool = EraserTool();
     _shapeTool = ShapeTool();
-
+    _selectionTool = SelectionTool();
     // Varsayılan: Pen
     _activeTool = _penTool;
     _penTool.onSelected(_controller);
@@ -81,6 +81,7 @@ class _DrawingPageState extends State<DrawingPage> {
         ToolType.pencil => _pencilTool,
         ToolType.eraser => _eraserTool,
         ToolType.shape => _shapeTool,
+        ToolType.selection => _selectionTool,
         _ => _penTool,
       };
     });
@@ -223,6 +224,7 @@ class _DrawingPageState extends State<DrawingPage> {
           _buildToolButton(ToolType.highlighter, Icons.highlight, 'Fosforlu'),
           _buildToolButton(ToolType.pencil, Icons.create, 'Kurşun'),
           _buildToolButton(ToolType.eraser, Icons.auto_fix_normal, 'Silgi'),
+          _buildToolButton(ToolType.selection, Icons.touch_app, 'Seçim'),
           _buildToolButton(ToolType.shape, Icons.category, 'Şekil'),
         ],
       ),
