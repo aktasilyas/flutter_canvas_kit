@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
+
 import 'package:flutter_canvas_kit/src/domain/entities/canvas_page.dart';
 import 'package:flutter_canvas_kit/src/domain/entities/layer.dart';
 import 'package:flutter_canvas_kit/src/domain/entities/shape.dart';
@@ -532,6 +534,18 @@ class CanvasPainter extends CustomPainter {
         canvas.drawPath(path, strokePaint);
         break;
 
+      case ShapeType.star:
+        final path = _createStarPath(rect, shape.pointCount);
+        if (fillPaint != null) canvas.drawPath(path, fillPaint);
+        canvas.drawPath(path, strokePaint);
+        break;
+
+      case ShapeType.polygon:
+        final path = _createPolygonPath(rect, shape.pointCount);
+        if (fillPaint != null) canvas.drawPath(path, fillPaint);
+        canvas.drawPath(path, strokePaint);
+        break;
+
       default:
         if (fillPaint != null) canvas.drawRect(rect, fillPaint);
         canvas.drawRect(rect, strokePaint);
@@ -571,6 +585,52 @@ class CanvasPainter extends CustomPainter {
     path.moveTo(rect.center.dx, rect.top);
     path.lineTo(rect.right, rect.bottom);
     path.lineTo(rect.left, rect.bottom);
+    path.close();
+    return path;
+  }
+
+  Path _createStarPath(Rect rect, int points) {
+    final path = Path();
+    final center = rect.center;
+    final outerRadius = math.min(rect.width, rect.height) / 2;
+    final innerRadius = outerRadius * 0.4;
+    final step = math.pi / points;
+
+    path.moveTo(
+      center.dx + outerRadius * math.cos(-math.pi / 2),
+      center.dy + outerRadius * math.sin(-math.pi / 2),
+    );
+
+    for (int i = 1; i <= points * 2; i++) {
+        final radius = i % 2 == 0 ? outerRadius : innerRadius;
+        final angle = -math.pi / 2 + step * i;
+        path.lineTo(
+          center.dx + radius * math.cos(angle),
+          center.dy + radius * math.sin(angle),
+        );
+    }
+    path.close();
+    return path;
+  }
+
+  Path _createPolygonPath(Rect rect, int points) {
+    final path = Path();
+    final center = rect.center;
+    final radius = math.min(rect.width, rect.height) / 2;
+    final step = (math.pi * 2) / points;
+
+    path.moveTo(
+      center.dx + radius * math.cos(-math.pi / 2),
+      center.dy + radius * math.sin(-math.pi / 2),
+    );
+
+    for (int i = 1; i < points; i++) {
+      final angle = -math.pi / 2 + step * i;
+      path.lineTo(
+        center.dx + radius * math.cos(angle),
+        center.dy + radius * math.sin(angle),
+      );
+    }
     path.close();
     return path;
   }

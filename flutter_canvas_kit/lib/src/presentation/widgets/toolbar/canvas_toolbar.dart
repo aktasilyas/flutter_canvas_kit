@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_canvas_kit/src/domain/enums/tool_type.dart';
 import 'package:flutter_canvas_kit/src/presentation/controllers/canvas_controller.dart';
 import 'package:flutter_canvas_kit/src/presentation/widgets/toolbar/color_picker.dart';
+import 'package:flutter_canvas_kit/src/presentation/widgets/toolbar/shape_picker.dart';
 import 'package:flutter_canvas_kit/src/presentation/widgets/toolbar/tool_icon_painter.dart';
 
 /// Toolbar konumu.
@@ -54,6 +55,7 @@ class CanvasToolbar extends StatelessWidget {
     ToolType.highlighter,
     ToolType.neon,
     ToolType.dashed,
+    ToolType.shape,
     ToolType.eraser,
     ToolType.selection,
   ];
@@ -132,60 +134,68 @@ class CanvasToolbar extends StatelessWidget {
     final theme = Theme.of(context);
     final bgColor = backgroundColor ?? Colors.white;
 
-    return Container(
-      height: 80, 
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-           // Pen Tools
-          Expanded(
-            flex: 3,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              // Clip to hide the bottom of the tools if they 'slide up' from a hidden area
-              clipBehavior: Clip.none, 
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                clipBehavior: Clip.none,
-                children: _buildToolButtons(context, theme.primaryColor),
-              ),
-            ),
-          ),
-          
-          const VerticalDivider(width: 1),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 600;
+        final barHeight = isCompact ? 70.0 : 80.0; // Slightly smaller on mobile
 
-          // Settings (Size & Color)
-          Expanded(
-            flex: 2,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                 mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  _buildSizeControls(context),
-                  const SizedBox(width: 16),
-                  _buildColorButton(context),
-                ],
-              ),
+        return SafeArea(
+          child: Container(
+            height: barHeight, 
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                 // Pen Tools
+                Expanded(
+                  flex: isCompact ? 4 : 3, // Give more space to tools on mobile
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: isCompact ? 8 : 16),
+                    clipBehavior: Clip.none, 
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      clipBehavior: Clip.none,
+                      children: _buildToolButtons(context, theme.primaryColor, isCompact),
+                    ),
+                  ),
+                ),
+                
+                const VerticalDivider(width: 1),
+
+                // Settings (Size & Color)
+                Expanded(
+                  flex: isCompact ? 2 : 2,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.symmetric(horizontal: isCompact ? 8 : 16),
+                    child: Row(
+                       mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        _buildSizeControls(context, isCompact),
+                        SizedBox(width: isCompact ? 8 : 16),
+                        _buildColorButton(context, isCompact),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  List<Widget> _buildToolButtons(BuildContext context, Color selColor) {
+  List<Widget> _buildToolButtons(BuildContext context, Color selColor, bool isCompact) {
     final toolList = tools ?? defaultTools;
 
     return toolList.map((tool) {
@@ -196,17 +206,25 @@ class CanvasToolbar extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: () => controller.selectTool(tool),
+            onTap: () {
+               controller.selectTool(tool);
+               if (tool == ToolType.shape && isSelected) {
+                  // If already selected, open picker on second tap too? 
+                  // User asked for long press or secondary, but double tap/re-tap is intuitive too.
+                  ShapePicker.show(context, controller);
+               }
+            },
+            onLongPress: tool == ToolType.shape 
+                ? () => ShapePicker.show(context, controller) 
+                : null,
             borderRadius: BorderRadius.circular(8),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               curve: Curves.easeOutBack,
-              // Constant size
-              width: 40, 
+              width: isCompact ? 36 : 40, 
               height: 100, 
-              // Pop up effect
               transform: Matrix4.translationValues(0, isSelected ? -20 : 0, 0),
-              margin: const EdgeInsets.symmetric(horizontal: 8),
+              margin: EdgeInsets.symmetric(horizontal: isCompact ? 4 : 8),
               padding: const EdgeInsets.all(0),
               decoration: BoxDecoration(
                 color: Colors.transparent, 
@@ -220,18 +238,19 @@ class CanvasToolbar extends StatelessWidget {
     }).toList();
   }
 
-  Widget _buildColorButton(BuildContext context) {
+  Widget _buildColorButton(BuildContext context, bool isCompact) {
+    final size = isCompact ? 32.0 : 40.0;
     return GestureDetector(
       onTap: () => _showColorPickerDialog(context),
       child: Container(
-        width: 40,
-        height: 40,
+        width: size,
+        height: size,
         decoration: BoxDecoration(
           color: controller.currentColor,
           shape: BoxShape.circle,
           border: Border.all(color: Colors.grey.shade300, width: 2),
         ),
-        child: const Icon(Icons.palette, color: Colors.white, size: 20),
+        child: Icon(Icons.palette, color: Colors.white, size: size * 0.5),
       ),
     );
   }
@@ -345,11 +364,13 @@ class CanvasToolbar extends StatelessWidget {
     return ToolIconWidget(
       toolType: tool, 
       isSelected: isSelected,
-      tipColor: controller.currentColor, // Pass dynamic color
+      tipColor: controller.currentColor, 
+      shapeType: tool == ToolType.shape ? controller.currentShapeType : null,
     );
   }
 
-  Widget _buildSizeControls(BuildContext context) {
+  Widget _buildSizeControls(BuildContext context, bool isCompact) {
+    final iconSize = isCompact ? 18.0 : 20.0;
     return Container(
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
@@ -359,14 +380,18 @@ class CanvasToolbar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
             IconButton(
-              icon: const Icon(Icons.remove, size: 20),
+              icon: Icon(Icons.remove, size: iconSize),
+              constraints: isCompact ? const BoxConstraints() : null,
+              padding: isCompact ? const EdgeInsets.all(4) : const EdgeInsets.all(8),
               onPressed: () {
                 final newWidth = (controller.currentWidth - 1).clamp(1.0, 50.0);
                 controller.setStrokeWidth(newWidth);
               },
             ),
              IconButton(
-              icon: const Icon(Icons.add, size: 20),
+              icon: Icon(Icons.add, size: iconSize),
+              constraints: isCompact ? const BoxConstraints() : null,
+              padding: isCompact ? const EdgeInsets.all(4) : const EdgeInsets.all(8),
               onPressed: () {
                 final newWidth = (controller.currentWidth + 1).clamp(1.0, 50.0);
                 controller.setStrokeWidth(newWidth);
