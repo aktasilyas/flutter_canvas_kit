@@ -83,6 +83,8 @@ export 'src/presentation/controllers/history_manager.dart';
 // =============================================================================
 
 export 'src/presentation/painters/canvas_painter.dart';
+export 'src/presentation/tools/ball_pen_tool.dart';
+export 'src/presentation/tools/brush_pen_tool.dart';
 export 'src/presentation/tools/eraser_tool.dart';
 export 'src/presentation/tools/highlighter_tool.dart';
 export 'src/presentation/tools/pen_tool.dart';

@@ -5,6 +5,7 @@ import 'package:flutter_canvas_kit/src/domain/entities/shape.dart';
 import 'package:flutter_canvas_kit/src/domain/entities/stroke.dart';
 import 'package:flutter_canvas_kit/src/domain/enums/page_background.dart';
 import 'package:flutter_canvas_kit/src/domain/enums/shape_type.dart';
+import 'package:flutter_canvas_kit/src/domain/enums/stroke_type.dart';
 import 'package:flutter_canvas_kit/src/domain/value_objects/stroke_point.dart';
 
 /// Canvas painter.
@@ -23,6 +24,7 @@ class CanvasPainter extends CustomPainter {
   /// Aktif çizim stili.
   final Color activeStrokeColor;
   final double activeStrokeWidth;
+  final StrokeType activeStrokeType;
 
   /// Seçili eleman ID'leri.
   final Set<String> selectedIds;
@@ -36,6 +38,7 @@ class CanvasPainter extends CustomPainter {
     this.activeShape,
     this.activeStrokeColor = const Color(0xFF000000),
     this.activeStrokeWidth = 2.0,
+    this.activeStrokeType = StrokeType.pen,
     this.selectedIds = const {},
     this.debugMode = false,
   });
@@ -166,47 +169,156 @@ class CanvasPainter extends CustomPainter {
   void _paintStroke(Canvas canvas, Stroke stroke) {
     if (stroke.points.isEmpty) return;
 
-    final paint = Paint()
-      ..color = stroke.style.effectiveColor
-      ..strokeWidth = stroke.style.width
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
+    final baseWidth = stroke.style.width;
+    final thinning = stroke.style.thinning;
+    final usesPressure = stroke.style.usesPressure;
 
+    // Tek nokta - daire çiz
     if (stroke.points.length == 1) {
-      canvas.drawCircle(
-        stroke.points.first.offset,
-        stroke.style.width / 2,
-        paint..style = PaintingStyle.fill,
-      );
+      final point = stroke.points.first;
+      final width = usesPressure
+          ? _calculateWidth(baseWidth, point.pressure, thinning)
+          : baseWidth;
+      final paint = Paint()
+        ..color = stroke.style.effectiveColor
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(point.offset, width / 2, paint);
       return;
     }
 
-    final path = _createStrokePath(stroke.points);
-    canvas.drawPath(path, paint);
+    // Basınç kullanılmıyorsa (ballPen, highlighter) - basit path çiz
+    if (!usesPressure || thinning == 0) {
+      final paint = Paint()
+        ..color = stroke.style.effectiveColor
+        ..strokeWidth = baseWidth
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke;
+      final path = _createStrokePath(stroke.points);
+      canvas.drawPath(path, paint);
+      return;
+    }
+
+    // Basınç duyarlı çizim - her segment için ayrı kalınlık
+    _paintPressureSensitiveStroke(canvas, stroke);
+  }
+
+  void _paintPressureSensitiveStroke(Canvas canvas, Stroke stroke) {
+    final points = stroke.points;
+    final baseWidth = stroke.style.width;
+    final thinning = stroke.style.thinning;
+    final color = stroke.style.effectiveColor;
+
+    // Her nokta için daire çiz (basit ama etkili yöntem)
+    for (int i = 0; i < points.length; i++) {
+      final point = points[i];
+      final width = _calculateWidth(baseWidth, point.pressure, thinning);
+
+      final paint = Paint()
+        ..color = color
+        ..style = PaintingStyle.fill;
+
+      canvas.drawCircle(point.offset, width / 2, paint);
+    }
+
+    // Noktalar arası bağlantılar için çizgiler
+    for (int i = 0; i < points.length - 1; i++) {
+      final p1 = points[i];
+      final p2 = points[i + 1];
+
+      final width1 = _calculateWidth(baseWidth, p1.pressure, thinning);
+      final width2 = _calculateWidth(baseWidth, p2.pressure, thinning);
+      final avgWidth = (width1 + width2) / 2;
+
+      final paint = Paint()
+        ..color = color
+        ..strokeWidth = avgWidth
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
+
+      canvas.drawLine(p1.offset, p2.offset, paint);
+    }
+  }
+
+  double _calculateWidth(double baseWidth, double pressure, double thinning) {
+    // thinning: 0 = sabit kalınlık, 1 = maksimum basınç etkisi
+    // pressure: 0.0 - 1.0
+    final minWidth = baseWidth * (1.0 - thinning);
+    final maxWidth = baseWidth * (1.0 + thinning * 0.5);
+    return minWidth + (maxWidth - minWidth) * pressure;
   }
 
   void _paintActiveStroke(Canvas canvas) {
     if (activeStrokePoints == null || activeStrokePoints!.isEmpty) return;
 
-    final paint = Paint()
-      ..color = activeStrokeColor
-      ..strokeWidth = activeStrokeWidth
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
+    final points = activeStrokePoints!;
+    final thinning = activeStrokeType.thinning;
+    final usesPressure = activeStrokeType.usesPressure;
 
-    if (activeStrokePoints!.length == 1) {
-      canvas.drawCircle(
-        activeStrokePoints!.first.offset,
-        activeStrokeWidth / 2,
-        paint..style = PaintingStyle.fill,
-      );
+    // Tek nokta - daire çiz
+    if (points.length == 1) {
+      final point = points.first;
+      final width = usesPressure
+          ? _calculateWidth(activeStrokeWidth, point.pressure, thinning)
+          : activeStrokeWidth;
+      final paint = Paint()
+        ..color = activeStrokeColor
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(point.offset, width / 2, paint);
       return;
     }
 
-    final path = _createStrokePath(activeStrokePoints!);
-    canvas.drawPath(path, paint);
+    // Basınç kullanılmıyorsa - basit path çiz
+    if (!usesPressure || thinning == 0) {
+      final paint = Paint()
+        ..color = activeStrokeColor
+        ..strokeWidth = activeStrokeWidth
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke;
+      final path = _createStrokePath(points);
+      canvas.drawPath(path, paint);
+      return;
+    }
+
+    // Basınç duyarlı aktif çizim
+    _paintPressureSensitiveActiveStroke(canvas);
+  }
+
+  void _paintPressureSensitiveActiveStroke(Canvas canvas) {
+    final points = activeStrokePoints!;
+    final thinning = activeStrokeType.thinning;
+
+    // Her nokta için daire çiz
+    for (int i = 0; i < points.length; i++) {
+      final point = points[i];
+      final width =
+          _calculateWidth(activeStrokeWidth, point.pressure, thinning);
+
+      final paint = Paint()
+        ..color = activeStrokeColor
+        ..style = PaintingStyle.fill;
+
+      canvas.drawCircle(point.offset, width / 2, paint);
+    }
+
+    // Noktalar arası bağlantılar
+    for (int i = 0; i < points.length - 1; i++) {
+      final p1 = points[i];
+      final p2 = points[i + 1];
+
+      final width1 = _calculateWidth(activeStrokeWidth, p1.pressure, thinning);
+      final width2 = _calculateWidth(activeStrokeWidth, p2.pressure, thinning);
+      final avgWidth = (width1 + width2) / 2;
+
+      final paint = Paint()
+        ..color = activeStrokeColor
+        ..strokeWidth = avgWidth
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
+
+      canvas.drawLine(p1.offset, p2.offset, paint);
+    }
   }
 
   Path _createStrokePath(List<StrokePoint> points) {
@@ -385,6 +497,7 @@ class CanvasPainter extends CustomPainter {
     return page != oldDelegate.page ||
         activeStrokePoints != oldDelegate.activeStrokePoints ||
         activeShape != oldDelegate.activeShape ||
+        activeStrokeType != oldDelegate.activeStrokeType ||
         selectedIds != oldDelegate.selectedIds;
   }
 }

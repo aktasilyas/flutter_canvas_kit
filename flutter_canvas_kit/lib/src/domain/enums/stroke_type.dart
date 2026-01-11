@@ -1,4 +1,4 @@
-import 'tool_type.dart';
+import 'package:flutter_canvas_kit/src/domain/enums/tool_type.dart';
 
 /// Çizgi (stroke) tipleri.
 ///
@@ -12,6 +12,28 @@ enum StrokeType {
     thinning: 0.5,
     smoothing: 0.5,
     streamline: 0.5,
+    usesPressure: true,
+  ),
+
+  /// Tükenmez kalem çizgisi.
+  ///
+  /// Sabit kalınlık, tutarlı çizgi.
+  ballPen(
+    displayName: 'Ball Pen',
+    thinning: 0.0, // Sabit kalınlık
+    smoothing: 0.6,
+    streamline: 0.6,
+    usesPressure: false,
+  ),
+
+  /// Fırça kalemi çizgisi.
+  ///
+  /// Yüksek basınç hassasiyeti, artistik çizimler.
+  brushPen(
+    displayName: 'Brush Pen',
+    thinning: 0.85, // Çok yüksek basınç etkisi
+    smoothing: 0.4,
+    streamline: 0.4,
     usesPressure: true,
   ),
 

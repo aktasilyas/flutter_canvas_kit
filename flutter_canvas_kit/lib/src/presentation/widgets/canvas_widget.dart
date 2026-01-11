@@ -56,9 +56,6 @@ class _CanvasWidgetState extends State<CanvasWidget> {
   /// Pointer ID takibi.
   int? _activePointerId;
 
-  /// Aktif pointer sayısı (multi-touch kontrolü için).
-  int _pointerCount = 0;
-
   /// Çizim aktif mi?
   bool _isDrawing = false;
 
@@ -141,6 +138,7 @@ class _CanvasWidgetState extends State<CanvasWidget> {
                           activeShape: widget.controller.activeShape,
                           activeStrokeColor: widget.controller.currentColor,
                           activeStrokeWidth: widget.controller.currentWidth,
+                          activeStrokeType: widget.controller.currentStyle.type,
                           selectedIds: widget.controller.selectedIds,
                           debugMode: widget.config.debugMode,
                         ),
@@ -163,19 +161,6 @@ class _CanvasWidgetState extends State<CanvasWidget> {
   }
 
   void _onPointerDown(PointerDownEvent event) {
-    _pointerCount++;
-
-    // İki veya daha fazla parmak varsa çizim yapma (zoom/pan için)
-    if (_pointerCount > 1) {
-      // Eğer çizim başlamışsa iptal et
-      if (_isDrawing) {
-        widget.tool?.onPointerCancel(widget.controller);
-        _activePointerId = null;
-        _isDrawing = false;
-      }
-      return;
-    }
-
     if (widget.config.readOnly || widget.controller.isReadOnly) return;
 
     // İlk parmağı takip et
@@ -226,8 +211,6 @@ class _CanvasWidgetState extends State<CanvasWidget> {
   }
 
   void _onPointerUp(PointerUpEvent event) {
-    _pointerCount = (_pointerCount - 1).clamp(0, 10);
-
     if (event.pointer != _activePointerId) return;
 
     final localPosition = _getLocalPosition(event.localPosition);
@@ -251,8 +234,6 @@ class _CanvasWidgetState extends State<CanvasWidget> {
   }
 
   void _onPointerCancel(PointerCancelEvent event) {
-    _pointerCount = (_pointerCount - 1).clamp(0, 10);
-
     if (event.pointer != _activePointerId) return;
 
     widget.tool?.onPointerCancel(widget.controller);

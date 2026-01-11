@@ -40,11 +40,14 @@ class _DrawingPageState extends State<DrawingPage> {
   late final HighlighterTool _highlighterTool;
   late final PencilTool _pencilTool;
   late final EraserTool _eraserTool;
+  late final BallPenTool _ballPenTool; // ← YENİ
+  late final BrushPenTool _brushPenTool; // ← YENİ
   late final ShapeTool _shapeTool;
   late final SelectionTool _selectionTool;
   bool _showLayerPanel = false;
   Tool? _activeTool;
   ToolType _activeToolType = ToolType.pen;
+  StrokeType _activePenType = StrokeType.pen;
   final GlobalKey _canvasKey = GlobalKey();
   @override
   void initState() {
@@ -62,6 +65,8 @@ class _DrawingPageState extends State<DrawingPage> {
     _pencilTool = PencilTool();
     _eraserTool = EraserTool();
     _shapeTool = ShapeTool();
+    _ballPenTool = BallPenTool(); // ← YENİ
+    _brushPenTool = BrushPenTool();
     _selectionTool = SelectionTool();
     // Varsayılan: Pen
     _activeTool = _penTool;
@@ -339,7 +344,12 @@ class _DrawingPageState extends State<DrawingPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildToolButton(ToolType.pen, Icons.edit, 'Kalem'),
+          // Kalem butonu - uzun basınca alt menü açılır
+          GestureDetector(
+            onLongPress: () => _showPenTypeMenu(context),
+            child:
+                _buildToolButton(ToolType.pen, _getPenIcon(), _getPenLabel()),
+          ),
           _buildToolButton(ToolType.highlighter, Icons.highlight, 'Fosforlu'),
           _buildToolButton(ToolType.pencil, Icons.create, 'Kurşun'),
           _buildToolButton(ToolType.eraser, Icons.auto_fix_normal, 'Silgi'),
@@ -375,6 +385,91 @@ class _DrawingPageState extends State<DrawingPage> {
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getPenIcon() {
+    return switch (_activePenType) {
+      StrokeType.pen => Icons.edit,
+      StrokeType.ballPen => Icons.create,
+      StrokeType.brushPen => Icons.brush,
+      _ => Icons.edit,
+    };
+  }
+
+  String _getPenLabel() {
+    return switch (_activePenType) {
+      StrokeType.pen => 'Kalem',
+      StrokeType.ballPen => 'Tükenmez',
+      StrokeType.brushPen => 'Fırça',
+      _ => 'Kalem',
+    };
+  }
+
+  void _showPenTypeMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Kalem Tipi',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildPenTypeOption(StrokeType.pen, Icons.edit, 'Fountain'),
+                _buildPenTypeOption(
+                    StrokeType.ballPen, Icons.create, 'Tükenmez'),
+                _buildPenTypeOption(StrokeType.brushPen, Icons.brush, 'Fırça'),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPenTypeOption(StrokeType type, IconData icon, String label) {
+    final isSelected = _activePenType == type;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _activePenType = type;
+          _activeTool = switch (type) {
+            StrokeType.pen => _penTool,
+            StrokeType.ballPen => _ballPenTool,
+            StrokeType.brushPen => _brushPenTool,
+            _ => _penTool,
+          };
+          _activeToolType = ToolType.pen;
+        });
+        _activeTool?.onSelected(_controller);
+        Navigator.pop(context);
+      },
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isSelected ? Colors.blue[100] : Colors.grey[200],
+              borderRadius: BorderRadius.circular(12),
+              border:
+                  isSelected ? Border.all(color: Colors.blue, width: 2) : null,
+            ),
+            child: Icon(icon, size: 32),
+          ),
+          const SizedBox(height: 8),
+          Text(label,
+              style: TextStyle(
+                  fontWeight:
+                      isSelected ? FontWeight.bold : FontWeight.normal)),
         ],
       ),
     );
