@@ -24,6 +24,22 @@ enum ToolType {
     supportsOpacity: true,
   ),
 
+  /// Neon (glow) pen.
+  neon(
+    displayName: 'Neon',
+    supportsColor: true,
+    supportsWidth: true,
+    supportsOpacity: true,
+  ),
+
+  /// Dashed line pen.
+  dashed(
+    displayName: 'Dashed',
+    supportsColor: true,
+    supportsWidth: true,
+    supportsOpacity: false,
+  ),
+
   /// Silgi.
   eraser(
     displayName: 'Eraser',
@@ -101,7 +117,11 @@ enum ToolType {
 
   /// Çizim aracı mı? (stroke oluşturur)
   bool get isDrawingTool {
-    return this == pen || this == highlighter || this == pencil;
+    return this == pen ||
+        this == highlighter ||
+        this == pencil ||
+        this == neon ||
+        this == dashed;
   }
 
   /// Seçim aracı mı?

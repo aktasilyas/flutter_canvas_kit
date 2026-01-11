@@ -57,6 +57,24 @@ enum StrokeType {
     smoothing: 0.3, // Daha az yumuşatma
     streamline: 0.3,
     usesPressure: true,
+  ),
+
+  /// Neon (glow) effect stroke.
+  neon(
+    displayName: 'Neon',
+    thinning: 0.5,
+    smoothing: 0.5,
+    streamline: 0.5,
+    usesPressure: true,
+  ),
+
+  /// Dashed line stroke.
+  dashed(
+    displayName: 'Dashed',
+    thinning: 0.0,
+    smoothing: 0.6,
+    streamline: 0.6,
+    usesPressure: false,
   );
 
   const StrokeType({
@@ -95,6 +113,8 @@ enum StrokeType {
       ToolType.pen => StrokeType.pen,
       ToolType.highlighter => StrokeType.highlighter,
       ToolType.pencil => StrokeType.pencil,
+      ToolType.neon => StrokeType.neon,
+      ToolType.dashed => StrokeType.dashed,
       _ => null,
     };
   }

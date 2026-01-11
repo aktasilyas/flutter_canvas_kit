@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_canvas_kit/src/domain/enums/tool_type.dart';
 import 'package:flutter_canvas_kit/src/presentation/controllers/canvas_controller.dart';
+import 'package:flutter_canvas_kit/src/presentation/widgets/toolbar/color_picker.dart';
+import 'package:flutter_canvas_kit/src/presentation/widgets/toolbar/tool_icon_painter.dart';
 
 /// Toolbar konumu.
 enum ToolbarPosition {
@@ -48,8 +50,10 @@ class CanvasToolbar extends StatelessWidget {
   /// Varsayılan araç listesi.
   static const List<ToolType> defaultTools = [
     ToolType.pen,
-    ToolType.highlighter,
     ToolType.pencil,
+    ToolType.highlighter,
+    ToolType.neon,
+    ToolType.dashed,
     ToolType.eraser,
     ToolType.selection,
   ];
@@ -59,74 +63,125 @@ class CanvasToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bgColor = backgroundColor ?? theme.colorScheme.surface;
-    final selColor = selectedColor ?? theme.colorScheme.primaryContainer;
+    return Stack(
+      children: [
+        // Top Bar
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: _buildTopBar(context),
+        ),
 
-    return ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) {
-        return Container(
-          height: _isHorizontal ? height : null,
-          width: _isHorizontal ? null : height,
-          decoration: BoxDecoration(
-            color: bgColor,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 4,
-                offset: position == ToolbarPosition.bottom
-                    ? const Offset(0, -2)
-                    : const Offset(0, 2),
+        // Bottom Bar
+        Positioned(
+          bottom: 16,
+          left: 16,
+          right: 16,
+          child: _buildBottomBar(context),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTopBar(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: Colors.white, // Or transparent if overlay
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFC1E3), // Pinkish "Tamamlandı" bg
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Text(
+              'Tamamlandı',
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
               ),
-            ],
+            ),
           ),
-          child: SafeArea(
-            child: _isHorizontal
-                ? _buildHorizontalToolbar(context, selColor)
-                : _buildVerticalToolbar(context, selColor),
-          ),
-        );
-      },
+          if (showUndoRedo)
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 4,
+                  ),
+                ],
+              ),
+              child: _buildUndoRedoButtons(context),
+            ),
+        ],
+      ),
     );
   }
 
-  Widget _buildHorizontalToolbar(BuildContext context, Color selColor) {
-    return Row(
-      children: [
-        if (showUndoRedo) ...[
-          _buildUndoRedoButtons(context),
-          const VerticalDivider(width: 16),
-        ],
-        Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: _buildToolButtons(context, selColor),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  Widget _buildBottomBar(BuildContext context) {
+    final theme = Theme.of(context);
+    final bgColor = backgroundColor ?? Colors.white;
 
-  Widget _buildVerticalToolbar(BuildContext context, Color selColor) {
-    return Column(
-      children: [
-        if (showUndoRedo) ...[
-          _buildUndoRedoButtons(context, vertical: true),
-          const Divider(height: 16),
+    return Container(
+      height: 80, 
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
         ],
-        Expanded(
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: _buildToolButtons(context, selColor),
+      ),
+      child: Row(
+        children: [
+           // Pen Tools
+          Expanded(
+            flex: 3,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              // Clip to hide the bottom of the tools if they 'slide up' from a hidden area
+              clipBehavior: Clip.none, 
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
+                children: _buildToolButtons(context, theme.primaryColor),
+              ),
             ),
           ),
-        ),
-      ],
+          
+          const VerticalDivider(width: 1),
+
+          // Settings (Size & Color)
+          Expanded(
+            flex: 2,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                 mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  _buildSizeControls(context),
+                  const SizedBox(width: 16),
+                  _buildColorButton(context),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -143,19 +198,21 @@ class CanvasToolbar extends StatelessWidget {
           child: InkWell(
             onTap: () => controller.selectTool(tool),
             borderRadius: BorderRadius.circular(8),
-            child: Container(
-              width: height - 8,
-              height: height - 8,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutBack,
+              // Constant size
+              width: 40, 
+              height: 100, 
+              // Pop up effect
+              transform: Matrix4.translationValues(0, isSelected ? -20 : 0, 0),
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.all(0),
               decoration: BoxDecoration(
-                color: isSelected ? selColor : Colors.transparent,
+                color: Colors.transparent, 
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(
-                _getToolIcon(tool),
-                color: isSelected
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurface,
-              ),
+              child: _buildToolIcon(tool, isSelected, context),
             ),
           ),
         ),
@@ -163,20 +220,164 @@ class CanvasToolbar extends StatelessWidget {
     }).toList();
   }
 
-  IconData _getToolIcon(ToolType tool) {
-    return switch (tool) {
-      ToolType.pen => Icons.edit,
-      ToolType.highlighter => Icons.highlight,
-      ToolType.pencil => Icons.create,
-      ToolType.eraser => Icons.auto_fix_normal,
-      ToolType.shape => Icons.category,
-      ToolType.text => Icons.text_fields,
-      ToolType.image => Icons.image,
-      ToolType.selection => Icons.touch_app,
-      ToolType.lasso => Icons.gesture,
-      ToolType.hand => Icons.pan_tool,
-    };
+  Widget _buildColorButton(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _showColorPickerDialog(context),
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: controller.currentColor,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.grey.shade300, width: 2),
+        ),
+        child: const Icon(Icons.palette, color: Colors.white, size: 20),
+      ),
+    );
   }
+
+  void _showColorPickerDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.8,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const Expanded(
+                    child: Text(
+                      'Renk',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(width: 48), // Balance for close button
+                ],
+              ),
+            ),
+             const Divider(),
+             Expanded(
+               child: ListView(
+                 padding: const EdgeInsets.all(16),
+                 children: [
+                   _buildColorSection('Varsayılan', ColorPicker.defaultColorPalette),
+                   const SizedBox(height: 24),
+                   _buildColorSection('Renk Paleti', [
+                     Colors.pinkAccent, Colors.orangeAccent, Colors.purpleAccent, Colors.blueAccent,
+                     Colors.greenAccent, Colors.tealAccent, Colors.amberAccent, Colors.deepOrangeAccent
+                   ], titleAction: 'Spring'),
+                   const SizedBox(height: 24),
+                    _buildColorSection('Nature', [
+                     Colors.green[900]!, Colors.green[700]!, Colors.green[500]!, Colors.lightGreen[400]!,
+                     Colors.brown[800]!, Colors.brown[600]!, Colors.brown[400]!, Colors.orange[200]!
+                   ]),
+                 ],
+               ),
+             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildColorSection(String title, List<Color> colors, {String? titleAction}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+             Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+             if (titleAction != null)
+               Text(titleAction, style: const TextStyle(color: Colors.blue)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: colors.map((color) => _buildColorCircle(color)).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildColorCircle(Color color) {
+    final isSelected = controller.currentColor.value == color.value;
+    return GestureDetector(
+      onTap: () {
+         controller.setColor(color);
+         // Navigator.pop(context); // Optional: keep open for multiple selections? User screenshot shows it as a mode.
+      },
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+           border: Border.all(
+             color: isSelected ? Colors.blue : Colors.grey.shade200, 
+             width: isSelected ? 3 : 1
+           ),
+        ),
+         child: isSelected 
+          ? const Icon(Icons.check, color: Colors.white, size: 20)
+          : null,
+      ),
+    );
+  }
+
+  Widget _buildToolIcon(ToolType tool, bool isSelected, BuildContext context) {
+    return ToolIconWidget(
+      toolType: tool, 
+      isSelected: isSelected,
+      tipColor: controller.currentColor, // Pass dynamic color
+    );
+  }
+
+  Widget _buildSizeControls(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+            IconButton(
+              icon: const Icon(Icons.remove, size: 20),
+              onPressed: () {
+                final newWidth = (controller.currentWidth - 1).clamp(1.0, 50.0);
+                controller.setStrokeWidth(newWidth);
+              },
+            ),
+             IconButton(
+              icon: const Icon(Icons.add, size: 20),
+              onPressed: () {
+                final newWidth = (controller.currentWidth + 1).clamp(1.0, 50.0);
+                controller.setStrokeWidth(newWidth);
+              },
+            ),
+        ],
+      )
+    );
+  }
+
+
 
   Widget _buildUndoRedoButtons(BuildContext context, {bool vertical = false}) {
     final children = [

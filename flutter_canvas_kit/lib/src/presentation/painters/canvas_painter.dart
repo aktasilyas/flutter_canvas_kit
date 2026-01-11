@@ -186,6 +186,18 @@ class CanvasPainter extends CustomPainter {
       return;
     }
 
+    // Neon stroke
+    if (stroke.style.type == StrokeType.neon) {
+      _paintNeonStroke(canvas, stroke);
+      return;
+    }
+
+    // Dashed stroke
+    if (stroke.style.type == StrokeType.dashed) {
+      _paintDashedStroke(canvas, stroke);
+      return;
+    }
+
     // Basınç kullanılmıyorsa (ballPen, highlighter) - basit path çiz
     if (!usesPressure || thinning == 0) {
       final paint = Paint()
@@ -194,6 +206,12 @@ class CanvasPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
         ..style = PaintingStyle.stroke;
+
+      // Highlighter için multiply blend mode (isteğe bağlı, daha gerçekçi görünür)
+      if (stroke.style.type == StrokeType.highlighter) {
+        paint.blendMode = BlendMode.multiply;
+      }
+
       final path = _createStrokePath(stroke.points);
       canvas.drawPath(path, paint);
       return;
@@ -201,6 +219,64 @@ class CanvasPainter extends CustomPainter {
 
     // Basınç duyarlı çizim - her segment için ayrı kalınlık
     _paintPressureSensitiveStroke(canvas, stroke);
+  }
+
+  void _paintNeonStroke(Canvas canvas, Stroke stroke) {
+    if (stroke.points.isEmpty) return;
+    
+    final path = _createStrokePath(stroke.points);
+    final color = stroke.style.effectiveColor;
+    final width = stroke.style.width;
+
+    // Glow layers
+    for (double i = 1; i <= 3; i++) {
+        final paint = Paint()
+          ..color = color.withValues(alpha: 0.2 / i)
+          ..strokeWidth = width * (2 * i) 
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, width * i);
+        canvas.drawPath(path, paint);
+    }
+    
+    // Core line (white)
+    final corePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.8)
+      ..strokeWidth = width * 0.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+      
+    canvas.drawPath(path, corePaint);
+  }
+
+  void _paintDashedStroke(Canvas canvas, Stroke stroke) {
+    if (stroke.points.isEmpty) return;
+    
+    final path = _createStrokePath(stroke.points);
+    final paint = Paint()
+      ..color = stroke.style.effectiveColor
+      ..strokeWidth = stroke.style.width
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final dashPath = _createDashedPath(path, stroke.style.width * 2, stroke.style.width);
+    canvas.drawPath(dashPath, paint);
+  }
+  
+  Path _createDashedPath(Path source, double dashWidth, double dashSpace) {
+    final path = Path();
+    for (final metric in source.computeMetrics()) {
+      double distance = 0;
+      while (distance < metric.length) {
+        final segment = metric.extractPath(distance, distance + dashWidth);
+        path.addPath(segment, Offset.zero);
+        distance += dashWidth + dashSpace;
+      }
+    }
+    return path;
   }
 
   void _paintPressureSensitiveStroke(Canvas canvas, Stroke stroke) {
@@ -268,6 +344,18 @@ class CanvasPainter extends CustomPainter {
       return;
     }
 
+    // Neon active stroke
+    if (activeStrokeType == StrokeType.neon) {
+      _paintActiveNeonStroke(canvas);
+      return;
+    }
+
+    // Dashed active stroke
+    if (activeStrokeType == StrokeType.dashed) {
+      _paintActiveDashedStroke(canvas);
+      return;
+    }
+
     // Basınç kullanılmıyorsa - basit path çiz
     if (!usesPressure || thinning == 0) {
       final paint = Paint()
@@ -276,6 +364,11 @@ class CanvasPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
         ..style = PaintingStyle.stroke;
+      
+      if (activeStrokeType == StrokeType.highlighter) {
+        paint.blendMode = BlendMode.multiply;
+      }
+
       final path = _createStrokePath(points);
       canvas.drawPath(path, paint);
       return;
@@ -283,6 +376,49 @@ class CanvasPainter extends CustomPainter {
 
     // Basınç duyarlı aktif çizim
     _paintPressureSensitiveActiveStroke(canvas);
+  }
+
+  void _paintActiveNeonStroke(Canvas canvas) {
+    final points = activeStrokePoints!;
+    final path = _createStrokePath(points);
+    final color = activeStrokeColor;
+    final width = activeStrokeWidth;
+
+    // Glow layers
+    for (double i = 1; i <= 3; i++) {
+        final paint = Paint()
+          ..color = color.withValues(alpha: 0.2 / i)
+          ..strokeWidth = width * (2 * i) 
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, width * i);
+        canvas.drawPath(path, paint);
+    }
+    
+    // Core line
+    final corePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.8)
+      ..strokeWidth = width * 0.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+      
+    canvas.drawPath(path, corePaint);
+  }
+
+  void _paintActiveDashedStroke(Canvas canvas) {
+    final points = activeStrokePoints!;
+    final path = _createStrokePath(points);
+    final paint = Paint()
+      ..color = activeStrokeColor
+      ..strokeWidth = activeStrokeWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final dashPath = _createDashedPath(path, activeStrokeWidth * 2, activeStrokeWidth);
+    canvas.drawPath(dashPath, paint);
   }
 
   void _paintPressureSensitiveActiveStroke(Canvas canvas) {
