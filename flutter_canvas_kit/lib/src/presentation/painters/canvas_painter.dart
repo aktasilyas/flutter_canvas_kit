@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 
@@ -9,6 +10,18 @@ import 'package:flutter_canvas_kit/src/domain/enums/page_background.dart';
 import 'package:flutter_canvas_kit/src/domain/enums/shape_type.dart';
 import 'package:flutter_canvas_kit/src/domain/enums/stroke_type.dart';
 import 'package:flutter_canvas_kit/src/domain/value_objects/stroke_point.dart';
+
+/// Painter çalışma modu.
+enum PainterMode {
+  /// Sadece statik içerik (katmanlar, arka plan).
+  static,
+
+  /// Sadece aktif içerik (o an çizilen çizgi).
+  active,
+
+  /// Hepsini çiz (eski davranış).
+  all,
+}
 
 /// Canvas painter.
 ///
@@ -34,11 +47,8 @@ class CanvasPainter extends CustomPainter {
   /// Debug modu.
   final bool debugMode;
 
-  /// Statik içeriği (background, strokes, shapes) çizsin mi?
-  final bool paintStaticContent;
-
-  /// Aktif içeriği (cursor, draft, selection) çizsin mi?
-  final bool paintActiveContent;
+  /// Painter modu.
+  final PainterMode mode;
 
   CanvasPainter({
     required this.page,
@@ -49,16 +59,18 @@ class CanvasPainter extends CustomPainter {
     this.activeStrokeType = StrokeType.pen,
     this.selectedIds = const {},
     this.debugMode = false,
-    this.paintStaticContent = true,
-    this.paintActiveContent = true,
+    this.mode = PainterMode.all,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Statik Katman (Arka plan + Kaydedilmiş Çizimler)
-    if (paintStaticContent) {
+    // 1. Statik İçerik (Arka plan ve Katmanlar)
+    // Sadece static veya all modunda çizilir.
+    if (mode != PainterMode.active) {
+      // Arka plan
       _paintBackground(canvas, size);
 
+      // Katmanlar
       for (final layer in page.layers) {
         if (!layer.isVisible) continue;
         _paintLayer(canvas, layer);
@@ -66,7 +78,8 @@ class CanvasPainter extends CustomPainter {
     }
 
     // 2. Aktif Katman (O an çizilen çizgi, şekil önizlemesi, seçimler)
-    if (paintActiveContent) {
+    // Sadece active veya all modunda çizilir.
+    if (mode != PainterMode.static) {
       // Aktif çizim (stroke)
       if (activeStrokePoints != null && activeStrokePoints!.isNotEmpty) {
         _paintActiveStroke(canvas);
@@ -78,33 +91,30 @@ class CanvasPainter extends CustomPainter {
       }
 
       // Seçim göstergeleri
+      // Not: Seçim göstergeleri genellikle aktif katmandadır çünkü seçim değiştikçe repaint gerekir.
       if (selectedIds.isNotEmpty) {
         _paintSelectionIndicators(canvas);
       }
       
-      // Debug bilgileri (genelde en üstte olsun isteriz)
+      // Debug bilgileri
       if (debugMode) {
         _paintDebugInfo(canvas, size);
       }
     }
   }
 
-  // ... (keeping helper methods equivalent, just method signature changed in prev steps or unaffected)
-
-  // ...
+  // ... (rest of the helper methods remain the same)
 
   @override
   bool shouldRepaint(covariant CanvasPainter oldDelegate) {
     // 1. Statik Katman: Sayfa nesnesi değiştiğinde (yeni bir şey eklendiğinde/silindiğinde) boya.
-    // İpucu: controller.currentPage her zaman copyWith() ile yeni instance dönerse !identical() yeterli.
-    // Ama CanvasPage == operatörü id-tabanlı olduğu için != operatörü burada yanıltıcıdır.
-    if (paintStaticContent && !paintActiveContent) {
+    if (mode == PainterMode.static) {
+      // identical(page, oldDelegate.page) kontrolü sayfa copyWith ile güncellendiğinde tetiklenir.
       return !identical(page, oldDelegate.page);
     }
 
     // 2. Aktif Katman: Çizim, seçim veya araç ayarları değiştiğinde boya.
-    if (!paintStaticContent && paintActiveContent) {
-      // Liste içi mutasyonları (add) yakalamak için uzunluk kontrolü şarttır.
+    if (mode == PainterMode.active) {
       final pointsChanged = activeStrokePoints != oldDelegate.activeStrokePoints ||
           (activeStrokePoints?.length != oldDelegate.activeStrokePoints?.length);
 
@@ -118,7 +128,7 @@ class CanvasPainter extends CustomPainter {
           !identical(page, oldDelegate.page);
     }
 
-    // 3. Karışık Mod (Varsayılan): Herhangi bir değişiklikte boya.
+    // 3. Karışık Mod (All): Herhangi bir değişiklikte boya.
     return !identical(page, oldDelegate.page) ||
         activeStrokePoints != oldDelegate.activeStrokePoints ||
         (activeStrokePoints?.length != oldDelegate.activeStrokePoints?.length) ||
@@ -126,6 +136,7 @@ class CanvasPainter extends CustomPainter {
         activeStrokeType != oldDelegate.activeStrokeType ||
         selectedIds != oldDelegate.selectedIds ||
         debugMode != oldDelegate.debugMode;
+
   }
 
   void _paintBackground(Canvas canvas, Size size) {
@@ -612,8 +623,8 @@ class CanvasPainter extends CustomPainter {
     final length = (dx * dx + dy * dy);
     if (length == 0) return;
 
-    final unitX = dx / _sqrt(length);
-    final unitY = dy / _sqrt(length);
+    final unitX = dx / math.sqrt(length);
+    final unitY = dy / math.sqrt(length);
 
     final arrowSize = paint.strokeWidth * 4;
     final arrowAngle = 0.5; // ~30 derece
@@ -728,15 +739,6 @@ class CanvasPainter extends CustomPainter {
       Paint()..color = const Color(0xCCFFFFFF),
     );
     textPainter.paint(canvas, const Offset(12, 12));
-  }
-
-  double _sqrt(double value) {
-    if (value <= 0) return 0;
-    double guess = value / 2;
-    for (int i = 0; i < 10; i++) {
-      guess = (guess + value / guess) / 2;
-    }
-    return guess;
   }
 }
 

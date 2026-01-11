@@ -137,8 +137,7 @@ class _CanvasWidgetState extends State<CanvasWidget> {
                             size: Size(page.width, page.height),
                             painter: CanvasPainter(
                               page: page,
-                              paintStaticContent: true,
-                              paintActiveContent: false,
+                              mode: PainterMode.static,
                             ),
                           ),
                         ),
@@ -149,8 +148,7 @@ class _CanvasWidgetState extends State<CanvasWidget> {
                             size: Size(page.width, page.height),
                             painter: CanvasPainter(
                               page: page,
-                              paintStaticContent: false,
-                              paintActiveContent: true,
+                              mode: PainterMode.active,
                               activeStrokePoints:
                                   widget.controller.activeStrokePoints,
                               activeShape: widget.controller.activeShape,
@@ -164,6 +162,7 @@ class _CanvasWidgetState extends State<CanvasWidget> {
                         ),
                       ],
                     ),
+
                   ),
                 ),
               ),
