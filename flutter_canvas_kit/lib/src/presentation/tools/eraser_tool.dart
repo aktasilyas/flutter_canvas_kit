@@ -38,6 +38,7 @@ class EraserTool extends Tool {
     StrokePoint point,
     PointerDownData data,
   ) {
+    controller.historyManager.beginBatch();
     _isErasing = true;
     _eraseAt(controller, data.canvasPosition);
   }
@@ -59,11 +60,13 @@ class EraserTool extends Tool {
     PointerUpData data,
   ) {
     _isErasing = false;
+    controller.historyManager.endBatch();
   }
 
   @override
   void onPointerCancel(CanvasController controller) {
     _isErasing = false;
+    controller.historyManager.endBatch();
     super.onPointerCancel(controller);
   }
 

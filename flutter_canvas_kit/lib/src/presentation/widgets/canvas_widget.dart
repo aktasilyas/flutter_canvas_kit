@@ -128,22 +128,41 @@ class _CanvasWidgetState extends State<CanvasWidget> {
                     onPointerMove: _onPointerMove,
                     onPointerUp: _onPointerUp,
                     onPointerCancel: _onPointerCancel,
-                    child: RepaintBoundary(
-                      child: CustomPaint(
-                        size: Size(page.width, page.height),
-                        painter: CanvasPainter(
-                          page: page,
-                          activeStrokePoints:
-                              widget.controller.activeStrokePoints,
-                          activeShape: widget.controller.activeShape,
-                          activeStrokeColor: widget.controller.currentColor,
-                          activeStrokeWidth: widget.controller.currentWidth,
-                          activeStrokeType: widget.controller.currentStyle.type,
-                          selectedIds: widget.controller.selectedIds,
-                          debugMode: widget.config.debugMode,
-                        ),
+                      child: Stack(
+                        children: [
+                          // 1. Statik Katman (Arka plan, Çizilmiş çizgiler)
+                          // Sadece sayfa değiştiğinde repaint olur.
+                          RepaintBoundary(
+                            child: CustomPaint(
+                              size: Size(page.width, page.height),
+                              painter: CanvasPainter(
+                                page: page,
+                                mode: PainterMode.static,
+                                selectedIds: widget.controller.selectedIds,
+                                debugMode: widget.config.debugMode,
+                              ),
+                            ),
+                          ),
+                          // 2. Aktif Katman (O an çizilen çizgi, cursor)
+                          // Sadece çizim sırasında repaint olur.
+                          RepaintBoundary(
+                            child: CustomPaint(
+                              size: Size(page.width, page.height),
+                              painter: CanvasPainter(
+                                page: page, // ActivePainter page datasına ihtiyaç duymaz ama mecbur
+                                mode: PainterMode.active,
+                                activeStrokePoints:
+                                    widget.controller.activeStrokePoints,
+                                activeShape: widget.controller.activeShape,
+                                activeStrokeColor: widget.controller.currentColor,
+                                activeStrokeWidth: widget.controller.currentWidth,
+                                activeStrokeType: widget.controller.currentStyle.type,
+                                debugMode: widget.config.debugMode,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
                   ),
                 ),
               ),

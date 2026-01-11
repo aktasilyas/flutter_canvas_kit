@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_canvas_kit/src/domain/entities/canvas_page.dart';
 import 'package:flutter_canvas_kit/src/domain/entities/layer.dart';
@@ -7,6 +8,18 @@ import 'package:flutter_canvas_kit/src/domain/enums/page_background.dart';
 import 'package:flutter_canvas_kit/src/domain/enums/shape_type.dart';
 import 'package:flutter_canvas_kit/src/domain/enums/stroke_type.dart';
 import 'package:flutter_canvas_kit/src/domain/value_objects/stroke_point.dart';
+
+/// Painter çalışma modu.
+enum PainterMode {
+  /// Sadece statik içerik (katmanlar, arka plan).
+  static,
+
+  /// Sadece aktif içerik (o an çizilen çizgi).
+  active,
+
+  /// Hepsini çiz (eski davranış).
+  all,
+}
 
 /// Canvas painter.
 ///
@@ -32,6 +45,9 @@ class CanvasPainter extends CustomPainter {
   /// Debug modu.
   final bool debugMode;
 
+  /// Painter modu.
+  final PainterMode mode;
+
   CanvasPainter({
     required this.page,
     this.activeStrokePoints,
@@ -41,36 +57,46 @@ class CanvasPainter extends CustomPainter {
     this.activeStrokeType = StrokeType.pen,
     this.selectedIds = const {},
     this.debugMode = false,
+    this.mode = PainterMode.all,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Arka plan
-    _paintBackground(canvas, size);
+    // 1. Statik İçerik (Arka plan ve Katmanlar)
+    // Active modda ise burayı pas geç
+    if (mode != PainterMode.active) {
+      // Arka plan
+      _paintBackground(canvas, size);
 
-    // Katmanlar
-    for (final layer in page.layers) {
-      if (!layer.isVisible) continue;
-      _paintLayer(canvas, layer);
+      // Katmanlar
+      for (final layer in page.layers) {
+        if (!layer.isVisible) continue;
+        _paintLayer(canvas, layer);
+      }
     }
 
-    // Aktif çizim (stroke)
-    if (activeStrokePoints != null && activeStrokePoints!.isNotEmpty) {
-      _paintActiveStroke(canvas);
+    // 2. Aktif İçerik (Cursor, Active Stroke, Active Shape)
+    // Static modda ise burayı pas geç
+    if (mode != PainterMode.static) {
+      // Aktif çizim (stroke)
+      if (activeStrokePoints != null && activeStrokePoints!.isNotEmpty) {
+        _paintActiveStroke(canvas);
+      }
+
+      // Aktif şekil (preview)
+      if (activeShape != null) {
+        _paintShape(canvas, activeShape!);
+      }
     }
 
-    // Aktif şekil (preview)
-    if (activeShape != null) {
-      _paintShape(canvas, activeShape!);
-    }
-
-    // Seçim göstergeleri
-    if (selectedIds.isNotEmpty) {
+    // Seçim göstergeleri (Genelde statik katmanda veya ayrı bir overlay'de olması iyidir,
+    // şimdilik static modda çizelim)
+    if (mode != PainterMode.active && selectedIds.isNotEmpty) {
       _paintSelectionIndicators(canvas);
     }
 
-    // Debug bilgileri
-    if (debugMode) {
+    // Debug bilgileri (Her zaman veya static'te)
+    if (debugMode && mode != PainterMode.active) {
       _paintDebugInfo(canvas, size);
     }
   }
@@ -411,8 +437,8 @@ class CanvasPainter extends CustomPainter {
     final length = (dx * dx + dy * dy);
     if (length == 0) return;
 
-    final unitX = dx / _sqrt(length);
-    final unitY = dy / _sqrt(length);
+    final unitX = dx / math.sqrt(length);
+    final unitY = dy / math.sqrt(length);
 
     final arrowSize = paint.strokeWidth * 4;
     final arrowAngle = 0.5; // ~30 derece
@@ -483,17 +509,26 @@ class CanvasPainter extends CustomPainter {
     textPainter.paint(canvas, const Offset(12, 12));
   }
 
-  double _sqrt(double value) {
-    if (value <= 0) return 0;
-    double guess = value / 2;
-    for (int i = 0; i < 10; i++) {
-      guess = (guess + value / guess) / 2;
-    }
-    return guess;
-  }
-
   @override
   bool shouldRepaint(covariant CanvasPainter oldDelegate) {
+    // Statik modda sadece sayfa yapısı veya seçim değişince repaint
+    if (mode == PainterMode.static) {
+      return page != oldDelegate.page || selectedIds != oldDelegate.selectedIds;
+    }
+    
+    if (mode == PainterMode.active) {
+      // 1. Çizim devam ediyorsa (liste dolu) veya
+      // 2. Çizim yeni bittiyse (eski liste dolu, yeni liste boş - temizlemek için)
+      // Repaint yap.
+      return activeStrokePoints != null ||
+          oldDelegate.activeStrokePoints != null ||
+          activeShape != oldDelegate.activeShape ||
+          activeStrokeType != oldDelegate.activeStrokeType ||
+          activeStrokeColor != oldDelegate.activeStrokeColor ||
+          activeStrokeWidth != oldDelegate.activeStrokeWidth;
+    }
+
+    // All modu (eski davranış)
     return page != oldDelegate.page ||
         activeStrokePoints != oldDelegate.activeStrokePoints ||
         activeShape != oldDelegate.activeShape ||
