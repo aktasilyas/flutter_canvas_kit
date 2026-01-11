@@ -39,6 +39,7 @@ class EraserTool extends Tool {
     PointerDownData data,
   ) {
     _isErasing = true;
+    controller.historyManager.beginBatch();
     _eraseAt(controller, data.canvasPosition);
   }
 
@@ -59,6 +60,7 @@ class EraserTool extends Tool {
     PointerUpData data,
   ) {
     _isErasing = false;
+    controller.historyManager.endBatch();
   }
 
   @override

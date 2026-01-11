@@ -391,9 +391,12 @@ class CanvasController extends ChangeNotifier {
     );
 
     // Katmana ekle
+    // Katmana ekle
     final updatedLayer = activeLayer.addStroke(stroke);
     final updatedPage = currentPage.updateLayer(activeLayer.id, updatedLayer);
-    _document = _document.updateCurrentPage(updatedPage);
+    
+    // Document'i güncelle ve HistoryManager'a bildir
+    _updateDocument(_document.updateCurrentPage(updatedPage));
 
     // Temizle
     _activeStrokePoints = null;

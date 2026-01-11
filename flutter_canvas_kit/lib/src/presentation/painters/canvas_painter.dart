@@ -34,6 +34,12 @@ class CanvasPainter extends CustomPainter {
   /// Debug modu.
   final bool debugMode;
 
+  /// Statik içeriği (background, strokes, shapes) çizsin mi?
+  final bool paintStaticContent;
+
+  /// Aktif içeriği (cursor, draft, selection) çizsin mi?
+  final bool paintActiveContent;
+
   CanvasPainter({
     required this.page,
     this.activeStrokePoints,
@@ -43,38 +49,83 @@ class CanvasPainter extends CustomPainter {
     this.activeStrokeType = StrokeType.pen,
     this.selectedIds = const {},
     this.debugMode = false,
+    this.paintStaticContent = true,
+    this.paintActiveContent = true,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Arka plan
-    _paintBackground(canvas, size);
+    // 1. Statik Katman (Arka plan + Kaydedilmiş Çizimler)
+    if (paintStaticContent) {
+      _paintBackground(canvas, size);
 
-    // Katmanlar
-    for (final layer in page.layers) {
-      if (!layer.isVisible) continue;
-      _paintLayer(canvas, layer);
+      for (final layer in page.layers) {
+        if (!layer.isVisible) continue;
+        _paintLayer(canvas, layer);
+      }
     }
 
-    // Aktif çizim (stroke)
-    if (activeStrokePoints != null && activeStrokePoints!.isNotEmpty) {
-      _paintActiveStroke(canvas);
+    // 2. Aktif Katman (O an çizilen çizgi, şekil önizlemesi, seçimler)
+    if (paintActiveContent) {
+      // Aktif çizim (stroke)
+      if (activeStrokePoints != null && activeStrokePoints!.isNotEmpty) {
+        _paintActiveStroke(canvas);
+      }
+
+      // Aktif şekil (preview)
+      if (activeShape != null) {
+        _paintShape(canvas, activeShape!);
+      }
+
+      // Seçim göstergeleri
+      if (selectedIds.isNotEmpty) {
+        _paintSelectionIndicators(canvas);
+      }
+      
+      // Debug bilgileri (genelde en üstte olsun isteriz)
+      if (debugMode) {
+        _paintDebugInfo(canvas, size);
+      }
+    }
+  }
+
+  // ... (keeping helper methods equivalent, just method signature changed in prev steps or unaffected)
+
+  // ...
+
+  @override
+  bool shouldRepaint(covariant CanvasPainter oldDelegate) {
+    // 1. Statik Katman: Sayfa nesnesi değiştiğinde (yeni bir şey eklendiğinde/silindiğinde) boya.
+    // İpucu: controller.currentPage her zaman copyWith() ile yeni instance dönerse !identical() yeterli.
+    // Ama CanvasPage == operatörü id-tabanlı olduğu için != operatörü burada yanıltıcıdır.
+    if (paintStaticContent && !paintActiveContent) {
+      return !identical(page, oldDelegate.page);
     }
 
-    // Aktif şekil (preview)
-    if (activeShape != null) {
-      _paintShape(canvas, activeShape!);
+    // 2. Aktif Katman: Çizim, seçim veya araç ayarları değiştiğinde boya.
+    if (!paintStaticContent && paintActiveContent) {
+      // Liste içi mutasyonları (add) yakalamak için uzunluk kontrolü şarttır.
+      final pointsChanged = activeStrokePoints != oldDelegate.activeStrokePoints ||
+          (activeStrokePoints?.length != oldDelegate.activeStrokePoints?.length);
+
+      return pointsChanged ||
+          activeShape != oldDelegate.activeShape ||
+          activeStrokeType != oldDelegate.activeStrokeType ||
+          activeStrokeColor != oldDelegate.activeStrokeColor ||
+          activeStrokeWidth != oldDelegate.activeStrokeWidth ||
+          selectedIds != oldDelegate.selectedIds ||
+          debugMode != oldDelegate.debugMode ||
+          !identical(page, oldDelegate.page);
     }
 
-    // Seçim göstergeleri
-    if (selectedIds.isNotEmpty) {
-      _paintSelectionIndicators(canvas);
-    }
-
-    // Debug bilgileri
-    if (debugMode) {
-      _paintDebugInfo(canvas, size);
-    }
+    // 3. Karışık Mod (Varsayılan): Herhangi bir değişiklikte boya.
+    return !identical(page, oldDelegate.page) ||
+        activeStrokePoints != oldDelegate.activeStrokePoints ||
+        (activeStrokePoints?.length != oldDelegate.activeStrokePoints?.length) ||
+        activeShape != oldDelegate.activeShape ||
+        activeStrokeType != oldDelegate.activeStrokeType ||
+        selectedIds != oldDelegate.selectedIds ||
+        debugMode != oldDelegate.debugMode;
   }
 
   void _paintBackground(Canvas canvas, Size size) {
@@ -686,15 +737,6 @@ class CanvasPainter extends CustomPainter {
       guess = (guess + value / guess) / 2;
     }
     return guess;
-  }
-
-  @override
-  bool shouldRepaint(covariant CanvasPainter oldDelegate) {
-    return page != oldDelegate.page ||
-        activeStrokePoints != oldDelegate.activeStrokePoints ||
-        activeShape != oldDelegate.activeShape ||
-        activeStrokeType != oldDelegate.activeStrokeType ||
-        selectedIds != oldDelegate.selectedIds;
   }
 }
 

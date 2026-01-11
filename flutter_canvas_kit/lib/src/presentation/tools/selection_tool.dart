@@ -86,6 +86,7 @@ class SelectionTool extends Tool {
         // Seçili eleman üzerine tıklandı - taşıma modu
         _mode = SelectionMode.move;
         _moveStart = position;
+        controller.historyManager.beginBatch();
         return;
       }
     }
@@ -99,11 +100,13 @@ class SelectionTool extends Tool {
       controller.selectElement(strokeHits.first.id);
       _mode = SelectionMode.move;
       _moveStart = position;
+      controller.historyManager.beginBatch();
     } else if (shapeHits.isNotEmpty) {
       controller.clearSelection();
       controller.selectElement(shapeHits.first.id);
       _mode = SelectionMode.move;
       _moveStart = position;
+      controller.historyManager.beginBatch();
     } else {
       // Dikdörtgen seçim başlat
       controller.clearSelection();
@@ -157,6 +160,8 @@ class SelectionTool extends Tool {
       for (final shape in shapeHits) {
         controller.selectElement(shape.id);
       }
+    } else if (_mode == SelectionMode.move) {
+      controller.historyManager.endBatch();
     }
 
     _resetInteraction();
@@ -164,6 +169,9 @@ class SelectionTool extends Tool {
 
   @override
   void onPointerCancel(CanvasController controller) {
+    if (_mode == SelectionMode.move) {
+      controller.historyManager.endBatch();
+    }
     _resetInteraction();
     super.onPointerCancel(controller);
   }
