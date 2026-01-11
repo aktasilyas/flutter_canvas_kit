@@ -11,6 +11,7 @@ import 'package:flutter_canvas_kit/src/domain/enums/page_background.dart';
 import 'package:flutter_canvas_kit/src/domain/enums/shape_type.dart';
 import 'package:flutter_canvas_kit/src/domain/enums/stroke_type.dart';
 import 'package:flutter_canvas_kit/src/domain/enums/tool_type.dart';
+import 'package:flutter_canvas_kit/src/domain/enums/eraser_mode.dart';
 import 'package:flutter_canvas_kit/src/domain/value_objects/stroke_point.dart';
 import 'package:flutter_canvas_kit/src/domain/value_objects/stroke_style.dart';
 import 'package:flutter_canvas_kit/src/presentation/controllers/history_manager.dart';
@@ -35,12 +36,21 @@ class CanvasController extends ChangeNotifier {
 
   /// Mevcut çizgi stili.
   StrokeStyle _currentStyle = const StrokeStyle();
+  
+  /// Silgi kalınlığı.
+  double _eraserWidth = 10.0;
 
   /// Mevcut şekil tipi (shape tool için).
   ShapeType _currentShapeType = ShapeType.rectangle;
 
   /// Şekil dolgulu mu?
   bool _shapeFilled = false;
+
+  /// Silgi modu.
+  EraserMode _eraserMode = EraserMode.stroke;
+
+  /// Alan silme için görselleştirme dikdörtgeni.
+  Rect? _activeEraserRect;
 
   /// Aktif çizgi (çizim sırasında).
   List<StrokePoint>? _activeStrokePoints;
@@ -114,13 +124,23 @@ class CanvasController extends ChangeNotifier {
   Color get currentColor => _currentStyle.color;
 
   /// Mevcut kalınlık.
-  double get currentWidth => _currentStyle.width;
+  double get currentWidth =>
+      _currentTool == ToolType.eraser ? _eraserWidth : _currentStyle.width;
+      
+  /// Silgi kalınlığı.
+  double get eraserWidth => _eraserWidth;
 
   /// Mevcut şekil tipi.
   ShapeType get currentShapeType => _currentShapeType;
 
   /// Şekil dolgulu mu?
   bool get shapeFilled => _shapeFilled;
+
+  /// Silgi modu.
+  EraserMode get eraserMode => _eraserMode;
+
+  /// Alan silme görseli.
+  Rect? get activeEraserRect => _activeEraserRect;
 
   // ---------------------------------------------------------------------------
   // Getters - State
@@ -325,12 +345,16 @@ class CanvasController extends ChangeNotifier {
 
   /// Kalınlık ayarlar.
   void setStrokeWidth(double width) {
-    _currentStyle = _currentStyle.copyWith(
-      width: width.clamp(
-        CanvasConstants.minStrokeWidth,
-        CanvasConstants.maxStrokeWidth,
-      ),
-    );
+    if (_currentTool == ToolType.eraser) {
+        _eraserWidth = width;
+    } else {
+        _currentStyle = _currentStyle.copyWith(
+          width: width.clamp(
+            CanvasConstants.minStrokeWidth,
+            CanvasConstants.maxStrokeWidth,
+          ),
+        );
+    }
     notifyListeners();
   }
 
@@ -355,6 +379,20 @@ class CanvasController extends ChangeNotifier {
   /// Şekil dolgu ayarı.
   void setShapeFilled(bool filled) {
     _shapeFilled = filled;
+    notifyListeners();
+  }
+
+  /// Silgi modunu ayarlar.
+  void setEraserMode(EraserMode mode) {
+    if (_eraserMode == mode) return;
+    _eraserMode = mode;
+    notifyListeners();
+  }
+
+  /// Alan silme dikdörtgenini ayarlar (görselleştirme için).
+  void setActiveEraserRect(Rect? rect) {
+    if (_activeEraserRect == rect) return;
+    _activeEraserRect = rect;
     notifyListeners();
   }
 
@@ -441,6 +479,105 @@ class CanvasController extends ChangeNotifier {
 
     final updatedPage = currentPage.updateLayer(activeLayer.id, updatedLayer);
     _updateDocument(_document.updateCurrentPage(updatedPage));
+  }
+
+  /// Kısmi silme (Pixel Eraser).
+  ///
+  /// Belirtilen noktadaki stroke'ları parçalar ve siler.
+  void erasePartial(Offset center, {double radius = 10.0}) {
+    if (_isReadOnly) return;
+    if (activeLayer.isLocked) return;
+
+    final strokesToRemove = <String>[];
+    final strokesToAdd = <Stroke>[];
+    bool hasChanges = false;
+
+    // Sadece bounding box'ı tutan stroke'ları kontrol et (performans için)
+    final potentialHits = activeLayer.strokes.where((s) =>
+        s.boundingBox.overlaps(Rect.fromCircle(center: center, radius: radius)));
+
+    for (final stroke in potentialHits) {
+      final newStrokes = _splitStroke(stroke, center, radius);
+      
+      if (newStrokes != null) {
+          strokesToRemove.add(stroke.id);
+          strokesToAdd.addAll(newStrokes);
+          hasChanges = true;
+      }
+    }
+
+    if (!hasChanges) return;
+
+    var updatedLayer = activeLayer;
+    for (final id in strokesToRemove) {
+      updatedLayer = updatedLayer.removeStroke(id);
+    }
+    for (final stroke in strokesToAdd) {
+      updatedLayer = updatedLayer.addStroke(stroke);
+    }
+
+    final updatedPage = currentPage.updateLayer(activeLayer.id, updatedLayer);
+    _updateDocument(_document.updateCurrentPage(updatedPage));
+  }
+
+  /// Alan silme (Area Eraser).
+  ///
+  /// Belirtilen alan içindeki stroke ve shape'leri siler.
+  void eraseArea(Rect rect) {
+    if (_isReadOnly) return;
+    if (activeLayer.isLocked) return;
+
+    // Rect içinde kalan stroke'lar
+    final hitStrokes = activeLayer.hitTestRect(rect);
+    final hitShapes = activeLayer.hitTestShapesRect(rect);
+
+    if (hitStrokes.isEmpty && hitShapes.isEmpty) return;
+
+    var updatedLayer = activeLayer;
+
+    for (final stroke in hitStrokes) {
+      updatedLayer = updatedLayer.removeStroke(stroke.id);
+    }
+
+    for (final shape in hitShapes) {
+      updatedLayer = updatedLayer.removeShape(shape.id);
+    }
+
+    final updatedPage = currentPage.updateLayer(activeLayer.id, updatedLayer);
+    _updateDocument(_document.updateCurrentPage(updatedPage));
+  }
+
+  /// Stroke'u belirli bir noktada böler.
+  /// Değişiklik yoksa null döner.
+  List<Stroke>? _splitStroke(Stroke stroke, Offset center, double radius) {
+    bool pointsRemoved = false;
+    List<Stroke> newStrokes = [];
+    List<StrokePoint> currentSegment = [];
+
+    for (final point in stroke.points) {
+      // Nokta silgi içinde mi?
+      final distance = (point.offset - center).distance;
+      if (distance <= radius) {
+        pointsRemoved = true;
+        // Mevcut segmenti bitir ve kaydet
+        if (currentSegment.isNotEmpty) {
+           // En az 2 nokta veya tek nokta ise nokta olarak
+           if (currentSegment.length >= 1) {
+             newStrokes.add(Stroke.create(points: List.from(currentSegment), style: stroke.style));
+           }
+           currentSegment = [];
+        }
+      } else {
+        currentSegment.add(point);
+      }
+    }
+
+    // Son segmenti ekle
+    if (currentSegment.isNotEmpty) {
+       newStrokes.add(Stroke.create(points: List.from(currentSegment), style: stroke.style));
+    }
+
+    return pointsRemoved ? newStrokes : null;
   }
 
   // ---------------------------------------------------------------------------

@@ -41,6 +41,9 @@ class CanvasPainter extends CustomPainter {
   final double activeStrokeWidth;
   final StrokeType activeStrokeType;
 
+  /// Aktif silgi alanı (görselleştirme için).
+  final Rect? activeEraserRect;
+
   /// Seçili eleman ID'leri.
   final Set<String> selectedIds;
 
@@ -57,6 +60,7 @@ class CanvasPainter extends CustomPainter {
     this.activeStrokeColor = const Color(0xFF000000),
     this.activeStrokeWidth = 2.0,
     this.activeStrokeType = StrokeType.pen,
+    this.activeEraserRect,
     this.selectedIds = const {},
     this.debugMode = false,
     this.mode = PainterMode.all,
@@ -88,6 +92,11 @@ class CanvasPainter extends CustomPainter {
       // Aktif şekil (preview)
       if (activeShape != null) {
         _paintShape(canvas, activeShape!);
+      }
+
+      // Eraser rect
+      if (activeEraserRect != null) {
+        _paintEraserRect(canvas, activeEraserRect!);
       }
 
       // Seçim göstergeleri
@@ -123,6 +132,7 @@ class CanvasPainter extends CustomPainter {
           activeStrokeType != oldDelegate.activeStrokeType ||
           activeStrokeColor != oldDelegate.activeStrokeColor ||
           activeStrokeWidth != oldDelegate.activeStrokeWidth ||
+          activeEraserRect != oldDelegate.activeEraserRect ||
           selectedIds != oldDelegate.selectedIds ||
           debugMode != oldDelegate.debugMode ||
           !identical(page, oldDelegate.page);
@@ -134,6 +144,7 @@ class CanvasPainter extends CustomPainter {
         (activeStrokePoints?.length != oldDelegate.activeStrokePoints?.length) ||
         activeShape != oldDelegate.activeShape ||
         activeStrokeType != oldDelegate.activeStrokeType ||
+        activeEraserRect != oldDelegate.activeEraserRect ||
         selectedIds != oldDelegate.selectedIds ||
         debugMode != oldDelegate.debugMode;
 
@@ -739,6 +750,24 @@ class CanvasPainter extends CustomPainter {
       Paint()..color = const Color(0xCCFFFFFF),
     );
     textPainter.paint(canvas, const Offset(12, 12));
+  }
+
+  void _paintEraserRect(Canvas canvas, Rect rect) {
+    final paint = Paint()
+      ..color = Colors.red.withValues(alpha: 0.5)
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke;
+      
+    final fillPaint = Paint()
+      ..color = Colors.red.withValues(alpha: 0.1)
+      ..style = PaintingStyle.fill;
+
+    canvas.drawRect(rect, fillPaint);
+
+    // Dashed border
+    final path = Path()..addRect(rect);
+    final dashPath = _createDashedPath(path, 10, 5);
+    canvas.drawPath(dashPath, paint);
   }
 }
 

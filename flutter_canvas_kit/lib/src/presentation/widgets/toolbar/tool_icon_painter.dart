@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_canvas_kit/src/domain/enums/tool_type.dart';
 import 'package:flutter_canvas_kit/src/domain/enums/shape_type.dart';
+import 'package:flutter_canvas_kit/src/domain/enums/eraser_mode.dart';
 import 'dart:math' as math;
+import 'dart:ui';
 
 class ToolIconWidget extends StatelessWidget {
   final ToolType toolType;
   final bool isSelected;
   final Color? tipColor;
   final ShapeType? shapeType;
+  final EraserMode? eraserMode;
 
   const ToolIconWidget({
     super.key,
@@ -15,6 +18,7 @@ class ToolIconWidget extends StatelessWidget {
     required this.isSelected,
     this.tipColor,
     this.shapeType,
+    this.eraserMode,
   });
 
   @override
@@ -25,6 +29,7 @@ class ToolIconWidget extends StatelessWidget {
         isSelected: isSelected,
         tipColor: tipColor ?? Colors.black,
         shapeType: shapeType,
+        eraserMode: eraserMode,
       ),
       size: const Size(40, 100), // Base aspect ratio
     );
@@ -36,12 +41,14 @@ class _ToolPainter extends CustomPainter {
   final bool isSelected;
   final Color tipColor;
   final ShapeType? shapeType;
+  final EraserMode? eraserMode;
 
   _ToolPainter({
     required this.toolType,
     required this.isSelected,
     required this.tipColor,
     this.shapeType,
+    this.eraserMode,
   });
 
   @override
@@ -297,17 +304,57 @@ class _ToolPainter extends CustomPainter {
     canvas.drawRect(rect.shift(const Offset(1,1)), shadowPaint);
     canvas.drawRect(rect, bodyPaint);
 
-    // Pink tip
-    canvas.drawRect(Rect.fromLTWH(w*0.1, h*0.1, w*0.8, h*0.1), Paint()..color = const Color(0xFFEF9A9A));
+    final mode = eraserMode ?? EraserMode.stroke;
+
+    // Tip Color based on mode
+    final Color tipColor;
+    String labelText = "SILGI";
+
+    switch (mode) {
+      case EraserMode.pixel:
+        tipColor = Colors.purpleAccent.shade100;
+        labelText = "PIXEL";
+        break;
+      case EraserMode.area:
+        tipColor = Colors.blueAccent.shade100;
+        labelText = "ALAN";
+        break;
+      case EraserMode.stroke:
+      default:
+        tipColor = const Color(0xFFEF9A9A); // Pink
+        labelText = "SILGI";
+        break;
+    }
+
+    // Tip
+    final tipRect = Rect.fromLTWH(w*0.1, h*0.1, w*0.8, h*0.1);
+    canvas.drawRect(tipRect, Paint()..color = tipColor);
+    
+    // Mode specific icons
+    if (mode == EraserMode.pixel) {
+       // Sparkles
+       final sparklePaint = Paint()..color = Colors.purple..style = PaintingStyle.fill;
+       canvas.drawCircle(Offset(w*0.3, h*0.15), w*0.05, sparklePaint);
+       canvas.drawCircle(Offset(w*0.7, h*0.12), w*0.03, sparklePaint);
+       canvas.drawCircle(Offset(w*0.5, h*0.18), w*0.04, sparklePaint);
+    } else if (mode == EraserMode.area) {
+       // Dashed box icon on the body
+       final dashPaint = Paint()..color = Colors.blue..style = PaintingStyle.stroke..strokeWidth = 1.5;
+       final boxRect = Rect.fromCenter(center: Offset(w*0.5, h*0.4), width: w*0.4, height: w*0.4);
+       // Simple dash effect
+       canvas.drawRect(boxRect, dashPaint); // Just solid for icon size readability 
+       // Or dots
+       canvas.drawPoints(PointMode.points, [boxRect.topLeft, boxRect.topRight, boxRect.bottomLeft, boxRect.bottomRight], Paint()..color=Colors.blue..strokeWidth=3);
+    }
     
     // Label
     final textPainter = TextPainter(
-      text: const TextSpan(text: "SILGI", style: TextStyle(color: Colors.grey, fontSize: 8)),
+      text: TextSpan(text: labelText, style: const TextStyle(color: Colors.grey, fontSize: 8)),
       textDirection: TextDirection.ltr
     )..layout();
     
     canvas.save();
-    canvas.translate(w*0.5, h*0.5);
+    canvas.translate(w*0.5, h*0.65); // Move label lower
     canvas.rotate(-math.pi / 2);
     textPainter.paint(canvas, Offset(-textPainter.width/2, -textPainter.height/2));
     canvas.restore();
@@ -322,6 +369,7 @@ class _ToolPainter extends CustomPainter {
     return oldDelegate.toolType != toolType ||
         oldDelegate.isSelected != isSelected ||
         oldDelegate.tipColor != tipColor ||
-        oldDelegate.shapeType != shapeType;
+        oldDelegate.shapeType != shapeType ||
+        oldDelegate.eraserMode != eraserMode;
   }
 }

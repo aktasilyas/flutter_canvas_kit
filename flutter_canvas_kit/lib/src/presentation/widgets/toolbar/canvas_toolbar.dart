@@ -4,6 +4,7 @@ import 'package:flutter_canvas_kit/src/domain/enums/tool_type.dart';
 import 'package:flutter_canvas_kit/src/presentation/controllers/canvas_controller.dart';
 import 'package:flutter_canvas_kit/src/presentation/widgets/toolbar/color_picker.dart';
 import 'package:flutter_canvas_kit/src/presentation/widgets/toolbar/shape_picker.dart';
+import 'package:flutter_canvas_kit/src/presentation/widgets/toolbar/eraser_picker.dart';
 import 'package:flutter_canvas_kit/src/presentation/widgets/toolbar/tool_icon_painter.dart';
 
 /// Toolbar konumu.
@@ -208,15 +209,15 @@ class CanvasToolbar extends StatelessWidget {
           child: InkWell(
             onTap: () {
                controller.selectTool(tool);
-               if (tool == ToolType.shape && isSelected) {
-                  // If already selected, open picker on second tap too? 
-                  // User asked for long press or secondary, but double tap/re-tap is intuitive too.
-                  ShapePicker.show(context, controller);
+               if (isSelected) {
+                  if (tool == ToolType.shape) ShapePicker.show(context, controller);
+                  if (tool == ToolType.eraser) EraserPicker.show(context, controller);
                }
             },
-            onLongPress: tool == ToolType.shape 
-                ? () => ShapePicker.show(context, controller) 
-                : null,
+            onLongPress: () {
+                if (tool == ToolType.shape) ShapePicker.show(context, controller);
+                if (tool == ToolType.eraser) EraserPicker.show(context, controller);
+            },
             borderRadius: BorderRadius.circular(8),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
@@ -366,6 +367,7 @@ class CanvasToolbar extends StatelessWidget {
       isSelected: isSelected,
       tipColor: controller.currentColor, 
       shapeType: tool == ToolType.shape ? controller.currentShapeType : null,
+      eraserMode: tool == ToolType.eraser ? controller.eraserMode : null,
     );
   }
 
